@@ -322,21 +322,22 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   // فتح خرائط جوجل للتنقل
   const openGoogleMaps = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
-    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
     
-    // محاولة فتح التطبيق أولاً، ثم المتصفح
-    const mobileAppUrl = `comgooglemaps://?q=${encodedAddress}`;
-    
-    // للأجهزة المحمولة، محاولة فتح التطبيق
+    // للأجهزة المحمولة، محاولة فتح تطبيق الخرائط
     if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      // محاولة فتح تطبيق خرائط جوجل
+      const mobileAppUrl = `comgooglemaps://?q=${encodedAddress}`;
       window.location.href = mobileAppUrl;
+      
       // إذا فشل فتح التطبيق، فتح المتصفح بعد ثانية
       setTimeout(() => {
-        window.open(googleMapsUrl, '_blank');
+        const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        window.open(webUrl, '_blank');
       }, 1000);
     } else {
       // للحاسوب، فتح في المتصفح
-      window.open(googleMapsUrl, '_blank');
+      const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+      window.open(webUrl, '_blank');
     }
   };
 
@@ -517,7 +518,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">تطبيق السائق</h1>
-                <p className="text-sm text-gray-500">مرحباً {currentDriver.name}</p>
+                <p className="text-sm text-gray-500">مرحباً {currentDriver?.name}</p>
               </div>
             </div>
             

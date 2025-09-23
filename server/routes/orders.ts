@@ -89,24 +89,13 @@ router.post("/", async (req, res) => {
       
       // إشعار لجميع السائقين المتاحين
       const availableDrivers = await storage.getAvailableDrivers();
-      for (const driver of availableDrivers) {
-        await storage.createNotification({
-          type: 'new_order_available',
-          title: 'طلب جديد متاح للتوصيل',
-          message: `طلب جديد من ${restaurant.name} - ${formatCurrency(totalAmount)} - عمولة ${formatCurrency(Math.round(parseFloat(totalAmount || '0') * 0.15))}`,
-          recipientType: 'driver',
-          recipientId: driver.id,
-          orderId: order.id,
-          isRead: false
-        });
-      }
       
       // إشعار للإدارة
       await storage.createNotification({
         type: 'new_order',
         title: 'طلب جديد',
         message: `طلب جديد رقم ${orderNumber} تم استلامه`,
-        recipientType: 'admin',
+            message: `طلب جديد من ${restaurant.name} - ${formatCurrency(totalAmount)}`,
         recipientId: null,
         orderId: order.id,
         isRead: false
@@ -251,17 +240,6 @@ router.put("/:id/assign-driver", async (req, res) => {
             isRead: false
           });
         }
-      }
-
-      // إشعار للإدارة
-      await storage.createNotification({
-        type: 'order_assigned',
-        title: 'تم تعيين سائق',
-        message: `تم تعيين السائق ${driver.name} للطلب ${order.orderNumber}`,
-        recipientType: 'admin',
-        recipientId: null,
-        orderId: id,
-        isRead: false
       });
 
       // تتبع الطلب

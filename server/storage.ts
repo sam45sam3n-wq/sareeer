@@ -393,9 +393,9 @@ export class MemStorage implements IStorage {
         id: randomUUID(),
         name: "مدير النظام",
         username: "admin",
-        email: "admin@example.com",
+        email: "aymenpro124@gmail.com",
         phone: "+967771234567",
-        password: "$2b$10$oBgkj60B2v86gRLbhsEtw.CwHkfpW2cKRFx8BADK6z6n42r5fBJNG", // 'secret'
+        password: "777146387", // كلمة مرور غير مشفرة للاختبار
         userType: "admin",
         isActive: true,
         createdAt: new Date(),
@@ -406,7 +406,7 @@ export class MemStorage implements IStorage {
         username: "driver01",
         email: "driver@example.com",
         phone: "+967771234568",
-        password: "$2b$10$oBgkj60B2v86gRLbhsEtw.CwHkfpW2cKRFx8BADK6z6n42r5fBJNG", // 'secret'
+        password: "driver123", // كلمة مرور غير مشفرة للاختبار
         userType: "driver",
         isActive: true,
         createdAt: new Date(),

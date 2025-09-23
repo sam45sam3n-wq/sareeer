@@ -143,6 +143,7 @@ export const adminUsers = pgTable("admin_users", {
   name: varchar("name", { length: 100 }).notNull(),
   username: varchar("username", { length: 50 }).unique(),
   email: varchar("email", { length: 100 }).notNull().unique(),
+  password: text("password").notNull(), // إضافة حقل كلمة المرور
   phone: varchar("phone", { length: 20 }),
   userType: varchar("user_type", { length: 50 }).default("admin").notNull(),
   isActive: boolean("is_active").default(true).notNull(),

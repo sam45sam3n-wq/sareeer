@@ -485,15 +485,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Driver ID is required" });
       }
 
+      // التحقق من وجود الطلب
+      const order = await storage.getOrder(id);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // التحقق من أن الطلب متاح للتعيين
+      if (order.driverId) {
+        return res.status(400).json({ error: "Order already assigned to another driver" });
+      }
+
+      // التحقق من وجود السائق
+      const driver = await storage.getDriver(driverId);
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
       const updatedOrder = await storage.updateOrder(id, {
         driverId,
-        status: 'preparing'
+        status: 'preparing',
+        updatedAt: new Date()
       });
       
       if (!updatedOrder) {
         return res.status(404).json({ error: "Order not found" });
       }
       
+      // تحديث حالة السائق إلى مشغول
+      await storage.updateDriver(driverId, { isAvailable: false });
+
+      // إنشاء إشعارات
+      try {
+        // إشعار للعميل
+        await storage.createNotification({
+          type: 'order_assigned',
+          title: 'تم تعيين سائق لطلبك',
+          message: `السائق ${driver.name} سيقوم بتوصيل طلبك`,
+          recipientType: 'customer',
+          recipientId: order.customerId || order.customerPhone,
+          orderId: id,
+          isRead: false
+        });
+
+        // إشعار للسائقين الآخرين بأن الطلب لم يعد متاحاً
+        const otherDrivers = await storage.getAvailableDrivers();
+        for (const otherDriver of otherDrivers) {
+          if (otherDriver.id !== driverId) {
+            await storage.createNotification({
+              type: 'order_taken',
+              title: 'تم استلام الطلب',
+              message: `السائق ${driver.name} قام باستلام الطلب`,
+              recipientType: 'driver',
+              recipientId: otherDriver.id,
+              orderId: id,
+              isRead: false
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error('خطأ في إنشاء الإشعارات:', notificationError);
+      }
+
       res.json({ success: true, order: updatedOrder });
     } catch (error) {
       console.error('Error assigning driver:', error);
