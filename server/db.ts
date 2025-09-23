@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { randomUUID } from "crypto";
 import { 
   adminUsers, categories, restaurantSections, restaurants, 
   menuItems, users, customers, userAddresses, orders, specialOffers, 
@@ -30,20 +31,17 @@ let db: ReturnType<typeof drizzle> | null = null;
 
 function getDb() {
   if (!db) {
-    // Use DATABASE_URL from environment variables
     const databaseUrl = process.env.DATABASE_URL;
     
     if (!databaseUrl) {
       throw new Error("DATABASE_URL must be defined in environment variables");
     }
     
-    console.log("🗺️ Using PostgreSQL database connection...");  // Debug log
+    console.log("🗺️ Using PostgreSQL database connection...");
     console.log("🔗 DATABASE_URL exists:", !!databaseUrl);
     
-    // Use DATABASE_URL for PostgreSQL connection
     const sqlClient = postgres(databaseUrl);
     
-    // Pass schema to enable db.query functionality
     const schema = {
       adminUsers,
       categories,
@@ -68,8 +66,6 @@ function getDb() {
   }
   return db;
 }
-
-// ... rest of the DatabaseStorage class remains the same
 
 export class DatabaseStorage {
   get db() {
@@ -105,8 +101,6 @@ export class DatabaseStorage {
     );
     return result[0];
   }
-
-  // تم حذف وظائف AdminSession - لم تعد مطلوبة بعد إزالة نظام المصادقة
 
   // Users
   async getUsers(): Promise<User[]> {
@@ -161,8 +155,6 @@ export class DatabaseStorage {
   }
 
   // Restaurants
-  // getRestaurants method is now the enhanced version below with filtering capabilities
-
   async getRestaurant(id: string): Promise<Restaurant | undefined> {
     const [restaurant] = await this.db.select().from(restaurants).where(eq(restaurants.id, id));
     return restaurant;
@@ -218,7 +210,7 @@ export class DatabaseStorage {
     return Array.isArray(result) ? result : [];
   }
 
-  async getOrder(id: string): Promise<Order | undefined> {
+  async getOrderById(id: string): Promise<Order | undefined> {
     const [order] = await this.db.select().from(orders).where(eq(orders.id, id));
     return order;
   }
@@ -236,6 +228,96 @@ export class DatabaseStorage {
   async updateOrder(id: string, order: Partial<InsertOrder>): Promise<Order | undefined> {
     const [updated] = await this.db.update(orders).set(order).where(eq(orders.id, id)).returning();
     return updated;
+  }
+
+  async deleteOrder(id: string): Promise<boolean> {
+    const result = await this.db.delete(orders).where(eq(orders.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getCustomerOrders(customerPhone: string): Promise<Order[]> {
+    return await this.db.select().from(orders)
+      .where(eq(orders.customerPhone, customerPhone))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async updateOrderStatus(orderId: string, status: string): Promise<Order | undefined> {
+    const [updated] = await this.db.update(orders)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
+  }
+
+  // Order Tracking - الدوال الأصلية فقط (بدون تكرار)
+  async createOrderTracking(tracking: {orderId: string; status: string; message: string; createdBy: string; createdByType: string}): Promise<any> {
+    try {
+      const trackingData = {
+        id: randomUUID(),
+        orderId: tracking.orderId,
+        status: tracking.status,
+        message: tracking.message,
+        createdBy: tracking.createdBy,
+        createdByType: tracking.createdByType,
+        createdAt: new Date()
+      };
+      
+      // For database implementation, uncomment the following:
+      // const [newTracking] = await this.db.insert(orderTracking).values(trackingData).returning();
+      // return newTracking;
+      
+      return trackingData;
+    } catch (error) {
+      console.error('Error creating order tracking:', error);
+      throw error;
+    }
+  }
+
+  async getOrderTracking(orderId: string): Promise<any[]> {
+    try {
+      // For database implementation, uncomment the following:
+      // return await this.db.select().from(orderTracking)
+      //   .where(eq(orderTracking.orderId, orderId))
+      //   .orderBy(desc(orderTracking.createdAt));
+      
+      // Mock implementation for now
+      const order = await this.getOrderById(orderId);
+      if (!order) return [];
+
+      const tracking = [];
+      const baseTime = new Date(order.createdAt);
+      
+      const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_way', 'delivered'];
+      const currentStatusIndex = statusFlow.indexOf(order.status || 'pending');
+      
+      for (let i = 0; i <= currentStatusIndex; i++) {
+        const status = statusFlow[i];
+        const messages: Record<string, string> = {
+          pending: 'تم استلام الطلب',
+          confirmed: 'تم تأكيد الطلب من المطعم',
+          preparing: 'جاري تحضير الطلب',
+          ready: 'الطلب جاهز للاستلام',
+          picked_up: 'تم استلام الطلب من المطعم',
+          on_way: 'السائق في الطريق إليك',
+          delivered: 'تم تسليم الطلب بنجاح'
+        };
+        
+        tracking.push({
+          id: `${orderId}-${i}`,
+          orderId,
+          status,
+          message: messages[status] || `تحديث الحالة إلى ${status}`,
+          createdBy: i === 0 ? 'system' : (i <= 2 ? 'restaurant' : 'driver'),
+          createdByType: i === 0 ? 'system' : (i <= 2 ? 'restaurant' : 'driver'),
+          createdAt: new Date(baseTime.getTime() + i * 5 * 60000)
+        });
+      }
+      
+      return tracking;
+    } catch (error) {
+      console.error('Error getting order tracking:', error);
+      return [];
+    }
   }
 
   // Drivers
@@ -299,13 +381,10 @@ export class DatabaseStorage {
     return result.rowCount > 0;
   }
 
-  // Search methods - removed duplicate methods, keeping enhanced versions below
-
-  // UI Settings (using systemSettings)
+  // UI Settings
   async getUiSettings(): Promise<SystemSettings[]> {
     try {
       const result = await this.db.select().from(systemSettings);
-      // Ensure we always return an array, even if result is null or undefined
       return Array.isArray(result) ? result : [];
     } catch (error) {
       console.error('Error fetching UI settings:', error);
@@ -322,7 +401,6 @@ export class DatabaseStorage {
 
   async updateUiSetting(key: string, value: string): Promise<SystemSettings | undefined> {
     try {
-      // Try to update existing setting
       const [updated] = await this.db.update(systemSettings)
         .set({ value, updatedAt: new Date() })
         .where(eq(systemSettings.key, key))
@@ -332,7 +410,6 @@ export class DatabaseStorage {
         return updated;
       }
       
-      // If no rows were updated, create new setting
       const [newSetting] = await this.db.insert(systemSettings)
         .values({
           key,
@@ -361,32 +438,32 @@ export class DatabaseStorage {
   }
 
   // Notifications
-async getNotifications(recipientType?: string, recipientId?: string, unread?: boolean): Promise<Notification[]> {
-  try {
-    const conditions = [];
-    if (recipientType) {
-      conditions.push(eq(notifications.recipientType, recipientType));
-    }
-    if (recipientId) {
-      conditions.push(eq(notifications.recipientId, recipientId));
-    }
-    if (unread !== undefined) {
-      conditions.push(eq(notifications.isRead, !unread));
-    }
-    
-    if (conditions.length > 0) {
+  async getNotifications(recipientType?: string, recipientId?: string, unread?: boolean): Promise<Notification[]> {
+    try {
+      const conditions = [];
+      if (recipientType) {
+        conditions.push(eq(notifications.recipientType, recipientType));
+      }
+      if (recipientId) {
+        conditions.push(eq(notifications.recipientId, recipientId));
+      }
+      if (unread !== undefined) {
+        conditions.push(eq(notifications.isRead, !unread));
+      }
+      
+      if (conditions.length > 0) {
+        return await this.db.select().from(notifications)
+          .where(and(...conditions))
+          .orderBy(desc(notifications.createdAt));
+      }
+      
       return await this.db.select().from(notifications)
-        .where(and(...conditions))
         .orderBy(desc(notifications.createdAt));
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      return [];
     }
-    
-    return await this.db.select().from(notifications)
-      .orderBy(desc(notifications.createdAt));
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    return [];
   }
-}
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
     try {
@@ -411,71 +488,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     }
   }
 
-  // Order tracking methods
-  async createOrderTracking(tracking: {orderId: string; status: string; message: string; createdBy: string; createdByType: string}) {
-    try {
-      const trackingData = {
-        id: randomUUID(),
-        orderId: tracking.orderId,
-        status: tracking.status,
-        message: tracking.message,
-        createdBy: tracking.createdBy,
-        createdByType: tracking.createdByType,
-        createdAt: new Date()
-      };
-      
-      // For now, we'll store in memory since orderTracking table might not exist
-      // In a real implementation, this would use the database
-      return trackingData;
-    } catch (error) {
-      console.error('Error creating order tracking:', error);
-      throw error;
-    }
-  }
-
-  async getOrderTracking(orderId: string) {
-    try {
-      // For now, return mock tracking data based on order status
-      const order = await this.getOrderById(orderId);
-      if (!order) return [];
-
-      const tracking = [];
-      const baseTime = new Date(order.createdAt);
-      
-      // Create tracking entries based on order status
-      const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_way', 'delivered'];
-      const currentStatusIndex = statusFlow.indexOf(order.status || 'pending');
-      
-      for (let i = 0; i <= currentStatusIndex; i++) {
-        const status = statusFlow[i];
-        const messages: Record<string, string> = {
-          pending: 'تم استلام الطلب',
-          confirmed: 'تم تأكيد الطلب من المطعم',
-          preparing: 'جاري تحضير الطلب',
-          ready: 'الطلب جاهز للاستلام',
-          picked_up: 'تم استلام الطلب من المطعم',
-          on_way: 'السائق في الطريق إليك',
-          delivered: 'تم تسليم الطلب بنجاح'
-        };
-        
-        tracking.push({
-          id: `${orderId}-${i}`,
-          orderId,
-          status,
-          message: messages[status] || `تحديث الحالة إلى ${status}`,
-          createdBy: i === 0 ? 'system' : (i <= 2 ? 'restaurant' : 'driver'),
-          createdByType: i === 0 ? 'system' : (i <= 2 ? 'restaurant' : 'driver'),
-          createdAt: new Date(baseTime.getTime() + i * 5 * 60000) // 5 minutes apart
-        });
-      }
-      
-      return tracking;
-    } catch (error) {
-      console.error('Error getting order tracking:', error);
-      return [];
-    }
-  }
-
   // Enhanced Search Functions
   async searchRestaurants(searchTerm: string, categoryId?: string, userLocation?: {lat: number, lon: number}): Promise<Restaurant[]> {
     const conditions = [
@@ -497,7 +509,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     
     const restaurants_list = Array.isArray(result) ? result : [];
     
-    // Add distance if user location is provided
     if (userLocation) {
       return restaurants_list.map(restaurant => ({
         ...restaurant,
@@ -553,7 +564,7 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     sortBy?: 'name' | 'rating' | 'deliveryTime' | 'distance' | 'newest';
     userLatitude?: number;
     userLongitude?: number;
-    radius?: number; // in kilometers
+    radius?: number;
   }): Promise<Restaurant[]> {
     const conditions = [eq(restaurants.isActive, true)];
     
@@ -583,17 +594,14 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
       );
     }
     
-    // Build and execute query with temporary type assertion for compilation
     let baseQuery: any = this.db.select().from(restaurants);
     
     if (conditions.length > 0) {
       baseQuery = baseQuery.where(and(...conditions));
     }
     
-    // Apply sorting
     switch (filters?.sortBy) {
       case 'rating':
-        // Convert varchar rating to numeric for proper sorting
         baseQuery = baseQuery.orderBy(sql`(${restaurants.rating})::numeric DESC`);
         break;
       case 'deliveryTime':
@@ -603,7 +611,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
         baseQuery = baseQuery.orderBy(desc(restaurants.createdAt));
         break;
       case 'distance':
-        // Will handle distance sorting in the application layer
         baseQuery = baseQuery.orderBy(restaurants.name);
         break;
       default:
@@ -613,7 +620,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     const result = await baseQuery;
     const restaurants_list = Array.isArray(result) ? result : [];
     
-    // If user location is provided and we're sorting by distance
     if (filters?.userLatitude && filters?.userLongitude && filters?.sortBy === 'distance') {
       return this.sortRestaurantsByDistance(
         restaurants_list, 
@@ -623,7 +629,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
       );
     }
     
-    // Filter by radius if provided
     if (filters?.userLatitude && filters?.userLongitude && filters?.radius) {
       return restaurants_list.filter(restaurant => {
         if (!restaurant.latitude || !restaurant.longitude) return false;
@@ -642,7 +647,7 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
 
   // Distance calculation using Haversine formula
   calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371; // Earth's radius in kilometers
+    const R = 6371;
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);
     const a = 
@@ -657,7 +662,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     return degrees * (Math.PI / 180);
   }
 
-  // Sort restaurants by distance
   private sortRestaurantsByDistance(
     restaurants_list: Restaurant[], 
     userLat: number, 
@@ -734,39 +738,7 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     return Array.isArray(result) ? result : [];
   }
 
-  // Order Functions
-  async getOrderById(id: string): Promise<Order | undefined> {
-    const [order] = await this.db.select().from(orders).where(eq(orders.id, id));
-    return order;
-  }
-
-  async getCustomerOrders(customerPhone: string): Promise<Order[]> {
-    return await this.db.select().from(orders)
-      .where(eq(orders.customerPhone, customerPhone))
-      .orderBy(desc(orders.createdAt));
-  }
-
-  async updateOrderStatus(orderId: string, status: string): Promise<Order | undefined> {
-    const [updated] = await this.db.update(orders)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(orders.id, orderId))
-      .returning();
-    return updated;
-  }
-
-  // Order Tracking Functions
-  async createOrderTracking(tracking: any): Promise<any> {
-    const [newTracking] = await this.db.insert(orderTracking).values(tracking).returning();
-    return newTracking;
-  }
-
-  async getOrderTracking(orderId: string): Promise<any[]> {
-    return await this.db.select().from(orderTracking)
-      .where(eq(orderTracking.orderId, orderId))
-      .orderBy(desc(orderTracking.createdAt));
-  }
-
-  // Cart Functions - وظائف السلة
+  // Cart Functions
   async getCartItems(userId: string): Promise<any[]> {
     try {
       const result = await this.db.select({
@@ -804,7 +776,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
 
   async addToCart(cartItem: InsertCart): Promise<Cart> {
     try {
-      // Check if item already exists in cart
       const existingItemResult = await this.db.select().from(cart)
         .where(
           and(
@@ -816,7 +787,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
       const existingItem = Array.isArray(existingItemResult) ? existingItemResult : [];
       
       if (existingItem.length > 0) {
-        // Update quantity
         const [updated] = await this.db.update(cart)
           .set({ 
             quantity: sql`${cart.quantity} + ${cartItem.quantity || 1}`,
@@ -826,7 +796,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
           .returning();
         return updated;
       } else {
-        // Add new item
         const [newItem] = await this.db.insert(cart).values(cartItem).returning();
         return newItem;
       }
@@ -859,7 +828,7 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
     return result.rowCount > 0;
   }
 
-  // Favorites Functions - وظائف المفضلة
+  // Favorites Functions
   async getFavoriteRestaurants(userId: string): Promise<Restaurant[]> {
     try {
       const result = await this.db.select()
@@ -923,7 +892,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
   }
 
   async createUserAddress(userId: string, address: InsertUserAddress): Promise<UserAddress> {
-    // If this is being set as default, unset other defaults for this user
     if (address.isDefault) {
       await this.db.update(userAddresses)
         .set({ isDefault: false })
@@ -946,7 +914,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
   }
 
   async updateUserAddress(addressId: string, userId: string, address: Partial<InsertUserAddress>): Promise<UserAddress | undefined> {
-    // Verify ownership
     const existingAddress = await this.db.select().from(userAddresses)
       .where(
         and(
@@ -959,7 +926,6 @@ async getNotifications(recipientType?: string, recipientId?: string, unread?: bo
       return undefined;
     }
 
-    // If this is being set as default, unset other defaults for this user
     if (address.isDefault) {
       await this.db.update(userAddresses)
         .set({ isDefault: false })
