@@ -23,7 +23,7 @@ export default function DriverLoginPage() {
     const driverData = localStorage.getItem('driver_user');
     
     if (token && driverData) {
-      setLocation('/driver');
+      setLocation('/driver/');
     }
   }, [setLocation]);
 
@@ -58,7 +58,7 @@ export default function DriverLoginPage() {
         localStorage.setItem('driver_user', JSON.stringify(result.user));
         
         // إعادة توجيه إلى تطبيق السائق
-        setLocation('/driver');
+        setLocation('/driver/');
       } else {
         setError(result.message || 'فشل في تسجيل الدخول');
       }
@@ -82,8 +82,8 @@ export default function DriverLoginPage() {
   // ملء البيانات التجريبية
   const fillDemoCredentials = () => {
     setFormData({
-      phone: '+967771234567',
-      password: 'driver123'
+      phone: 'مرحبا بك ',
+      password: 'كابتن التوصي'
     });
   };
 
@@ -95,7 +95,7 @@ export default function DriverLoginPage() {
           <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Truck className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">تطبيق السائق</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2"> تطبيق السائق من سريع</h1>
           <p className="text-gray-600">تسجيل دخول السائق</p>
         </div>
 
@@ -200,10 +200,10 @@ export default function DriverLoginPage() {
                 </Button>
                 
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-sm text-green-800 font-medium mb-2">🔑 بيانات تجريبية:</p>
+                  <p className="text-sm text-green-800 font-medium mb-2">السريع يرحب بك:</p>
                   <div className="text-xs text-green-700 space-y-1">
-                    <p>رقم الهاتف: +967771234567</p>
-                    <p>كلمة المرور: driver123</p>
+                    <p>اهلا</p>
+                    <p>ومرحبا</p>
                   </div>
                 </div>
               </div>
@@ -214,7 +214,7 @@ export default function DriverLoginPage() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-gray-500 text-sm">
-            © 2024 السريع ون - جميع الحقوق محفوظة
+            © 2025 السريع ون - جميع الحقوق محفوظة
           </p>
         </div>
       </div>
