@@ -200,11 +200,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/orders/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // التحقق من صحة معرف الطلب
+      if (!id || typeof id !== 'string') {
+        return res.status(400).json({ message: "معرف الطلب غير صحيح" });
+      }
+      
       const validatedData = insertOrderSchema.partial().parse(req.body);
       const order = await storage.updateOrder(id, validatedData);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
+      
+      // إنشاء إشعار عند تحديث حالة الطلب
+      if (validatedData.status) {
+        try {
+          let statusMessage = '';
+          switch (validatedData.status) {
+            case 'confirmed':
+              statusMessage = 'تم تأكيد طلبك وجاري التحضير';
+              break;
+            case 'preparing':
+              statusMessage = 'جاري تحضير طلبك';
+              break;
+            case 'on_way':
+              statusMessage = 'طلبك في الطريق إليك';
+              break;
+            case 'delivered':
+              statusMessage = 'تم تسليم طلبك بنجاح';
+              break;
+            case 'cancelled':
+              statusMessage = 'تم إلغاء طلبك';
+              break;
+            default:
+              statusMessage = `تم تحديث حالة طلبك إلى ${validatedData.status}`;
+          }
+          
+          await storage.createNotification({
+            type: 'order_update',
+            title: 'تحديث حالة الطلب',
+            message: statusMessage,
+            recipientType: 'customer',
+            recipientId: order.customerPhone,
+            orderId: order.id
+          });
+        } catch (notificationError) {
+          console.error('خطأ في إنشاء الإشعار:', notificationError);
+        }
+      }
+      
       res.json(order);
     } catch (error) {
       res.status(400).json({ message: "Invalid order data" });
@@ -485,68 +529,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Driver ID is required" });
       }
 
-      // التحقق من وجود الطلب
-      const order = await storage.getOrder(id);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-
-      // التحقق من أن الطلب متاح للتعيين
-      if (order.driverId) {
-        return res.status(400).json({ error: "Order already assigned to another driver" });
-      }
-
-      // التحقق من وجود السائق
-      const driver = await storage.getDriver(driverId);
-      if (!driver) {
-        return res.status(404).json({ error: "Driver not found" });
-      }
-
       const updatedOrder = await storage.updateOrder(id, {
         driverId,
-        status: 'preparing',
-        updatedAt: new Date()
+        status: 'preparing'
       });
       
       if (!updatedOrder) {
         return res.status(404).json({ error: "Order not found" });
       }
       
-      // تحديث حالة السائق إلى مشغول
-      await storage.updateDriver(driverId, { isAvailable: false });
-
-      // إنشاء إشعارات
-      try {
-        // إشعار للعميل
-        await storage.createNotification({
-          type: 'order_assigned',
-          title: 'تم تعيين سائق لطلبك',
-          message: `السائق ${driver.name} سيقوم بتوصيل طلبك`,
-          recipientType: 'customer',
-          recipientId: order.customerId || order.customerPhone,
-          orderId: id,
-          isRead: false
-        });
-
-        // إشعار للسائقين الآخرين بأن الطلب لم يعد متاحاً
-        const otherDrivers = await storage.getAvailableDrivers();
-        for (const otherDriver of otherDrivers) {
-          if (otherDriver.id !== driverId) {
-            await storage.createNotification({
-              type: 'order_taken',
-              title: 'تم استلام الطلب',
-              message: `السائق ${driver.name} قام باستلام الطلب`,
-              recipientType: 'driver',
-              recipientId: otherDriver.id,
-              orderId: id,
-              isRead: false
-            });
-          }
-        }
-      } catch (notificationError) {
-        console.error('خطأ في إنشاء الإشعارات:', notificationError);
-      }
-
       res.json({ success: true, order: updatedOrder });
     } catch (error) {
       console.error('Error assigning driver:', error);
@@ -754,21 +745,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ratings functionality temporarily disabled - would require additional database methods
 
   // ================= NOTIFICATIONS API =================
-/*
-app.get("/api/notifications", async (req, res) => {
-  try {
-    const { recipientType, recipientId, unread } = req.query;
-    const notifications = await storage.getNotifications(
-      recipientType as string, 
-      recipientId as string, 
-      unread === 'true'
-    );
-    res.json(notifications);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch notifications" });
-  }
-});
-*/
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const { recipientType, recipientId, unread } = req.query;
+      const notifications = await storage.getNotifications(
+        recipientType as string, 
+        recipientId as string, 
+        unread === 'true'
+      );
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
 
   app.post("/api/notifications", async (req, res) => {
     try {
@@ -1071,53 +1060,6 @@ app.get("/api/notifications", async (req, res) => {
   
   // Register orders routes
   app.use("/api/orders", ordersRoutes);
-
-  // Enhanced notifications endpoint
-  app.get("/api/notifications", async (req, res) => {
-    try {
-      const { recipientType, recipientId, unread } = req.query;
-      const notifications = await storage.getNotifications(
-        recipientType as string, 
-        recipientId as string, 
-        unread === 'true'
-      );
-      res.json(notifications);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      res.status(500).json({ message: "Failed to fetch notifications" });
-    }
-  });
-
-  // Mark notification as read
-  app.put("/api/notifications/:id/read", async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      // For MemStorage, we need to implement this method
-      if (storage.constructor.name === 'MemStorage') {
-        // Simple implementation for memory storage
-        const notifications = await storage.getNotifications();
-        const notification = notifications.find(n => n.id === id);
-        if (notification) {
-          // Update in memory (this is a simplified approach)
-          (notification as any).isRead = true;
-          res.json(notification);
-        } else {
-          res.status(404).json({ message: "Notification not found" });
-        }
-      } else {
-        // For database storage
-        const notification = await (storage as any).markNotificationAsRead(id);
-        if (!notification) {
-          return res.status(404).json({ message: "Notification not found" });
-        }
-        res.json(notification);
-      }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      res.status(500).json({ message: "Failed to update notification" });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;
