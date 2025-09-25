@@ -1,360 +1,141 @@
-import express from "express";
-import { storage } from "../storage.js";
-import * as schema from "../../shared/schema.js";
+import { Router } from 'express';
+import dbStorage from '../db.js';
 
-const router = express.Router();
+const router = Router();
+
+// الحصول على جميع الطلبات
+router.get('/', async (req, res) => {
+  try {
+    const orders = await db.getOrders();
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// الحصول على طلب محدد بالرقم
+router.get('/:id', async (req, res) => {
+  try {
+    const order = await db.getOrderById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    res.json(order);
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
 
 // إنشاء طلب جديد
-router.post("/", async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const {
-      customerName,
-      customerPhone,
-      customerEmail,
-      deliveryAddress,
-      customerLocationLat,
-      customerLocationLng,
-      notes,
-      paymentMethod,
-      items,
-      subtotal,
-      deliveryFee,
-      totalAmount,
-      restaurantId
-    } = req.body;
-
+    const orderData = req.body;
+    
     // التحقق من البيانات المطلوبة
-    if (!customerName || !customerPhone || !deliveryAddress || !items || !restaurantId) {
-      return res.status(400).json({ 
-        message: "Missing required fields: customerName, customerPhone, deliveryAddress, items, restaurantId",
-        received: { customerName, customerPhone, deliveryAddress, items: !!items, restaurantId }
-      });
+    if (!orderData.customerId || !orderData.items || !orderData.totalAmount) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // التحقق من صحة معرف المطعم - تحسين للتعامل مع الكائنات
-    let validRestaurantId = restaurantId;
-    if (typeof restaurantId === 'object' && restaurantId !== null) {
-      // إذا تم تمرير كائن بدلاً من معرف، استخرج المعرف
-      validRestaurantId = restaurantId.id || restaurantId.restaurantId;
-    }
-    
-    if (!validRestaurantId || typeof validRestaurantId !== 'string') {
-      return res.status(400).json({ 
-        error: "معرف المطعم غير صحيح", 
-        message: "Invalid restaurant ID format.",
-        received: restaurantId
-      });
-    }
+    const newOrder = await db.createOrder(orderData);
+    res.status(201).json(newOrder);
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ error: 'Failed to create order' });
+  }
+});
 
-    // التحقق من وجود المطعم
-    const restaurants = await storage.getRestaurants();
-    const restaurant = restaurants.find(r => r.id === validRestaurantId);
-    if (!restaurant) {
-      return res.status(400).json({ 
-        error: "المطعم المحدد غير موجود", 
-        message: "Restaurant not found",
-        restaurantId: validRestaurantId
-      });
+// تحديث طلب
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedOrder = await db.updateOrder(req.params.id, req.body);
+    if (!updatedOrder) {
+      return res.status(404).json({ error: 'Order not found' });
     }
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({ error: 'Failed to update order' });
+  }
+});
 
-    // حساب رسوم التوصيل بناءً على المسافة إذا تم توفير الموقع
-    let calculatedDeliveryFee = parseFloat(deliveryFee || "5");
-    let calculatedDistance = 0;
-    
-    if (customerLocationLat && customerLocationLng && restaurant.latitude && restaurant.longitude) {
-      try {
-        const deliveryInfo = await storage.calculateDeliveryFee(
-          validRestaurantId,
-          parseFloat(customerLocationLat),
-          parseFloat(customerLocationLng)
-        );
-        calculatedDeliveryFee = deliveryInfo.deliveryFee;
-        calculatedDistance = deliveryInfo.distance;
-      } catch (error) {
-        console.error('خطأ في حساب رسوم التوصيل:', error);
-        // استخدام الرسوم الافتراضية في حالة الخطأ
-      }
+// حذف طلب
+router.delete('/:id', async (req, res) => {
+  try {
+    const success = await db.deleteOrder(req.params.id);
+    if (!success) {
+      return res.status(404).json({ error: 'Order not found' });
     }
-    // إنشاء رقم طلب فريد
-    const orderNumber = `ORD-${Date.now()}`;
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
 
-    // إنشاء الطلب
-    const orderData = {
-      orderNumber,
-      customerName,
-      customerPhone,
-      customerEmail: customerEmail || null,
-      deliveryAddress,
-      customerLocationLat: customerLocationLat || null,
-      customerLocationLng: customerLocationLng || null,
-      calculatedDistance: calculatedDistance.toString(),
-      notes: notes || null,
-      paymentMethod: paymentMethod || 'cash',
-      status: 'pending',
-      items: typeof items === 'string' ? items : JSON.stringify(items),
-      subtotal: String(subtotal || 0),
-      deliveryFee: String(calculatedDeliveryFee),
-      total: String((parseFloat(subtotal || "0") + calculatedDeliveryFee).toFixed(2)),
-      totalAmount: String((parseFloat(subtotal || "0") + calculatedDeliveryFee).toFixed(2)),
-      driverEarnings: "0",
-      restaurantId: validRestaurantId,
-      estimatedTime: '30-45 دقيقة'
+// الحصول على تتبع الطلب
+router.get('/:id/tracking', async (req, res) => {
+  try {
+    const tracking = await db.getOrderTracking(req.params.id);
+    res.json(tracking);
+  } catch (error) {
+    console.error('Error fetching order tracking:', error);
+    res.status(500).json({ error: 'Failed to fetch order tracking' });
+  }
+});
+
+// إضافة تحديث لتتبع الطلب
+router.post('/:id/tracking', async (req, res) => {
+  try {
+    const trackingData = {
+      orderId: req.params.id,
+      status: req.body.status,
+      location: req.body.location,
+      notes: req.body.notes,
+      timestamp: new Date()
     };
 
-    const order = await storage.createOrder(orderData);
-
-    // إنشاء إشعار للمطعم والسائقين
-    try {
-      await storage.createNotification({
-        type: 'new_order',
-        title: 'طلب جديد',
-        message: `طلب جديد رقم ${orderNumber} من ${customerName}`,
-        recipientType: 'restaurant',
-        recipientId: restaurantId,
-        orderId: order.id
-      });
-      
-      await storage.createNotification({
-        type: 'new_order',
-        title: 'طلب جديد متاح',
-        message: `طلب جديد متاح للتوصيل من ${restaurant.name}`,
-        recipientType: 'driver',
-        recipientId: null, // للجميع
-        orderId: order.id
-      });
-      
-      await storage.createNotification({
-        type: 'new_order',
-        title: 'طلب جديد',
-        message: `طلب جديد رقم ${orderNumber} تم استلامه`,
-        recipientType: 'admin',
-        recipientId: null,
-        orderId: order.id
-      });
-
-      // إنشاء تتبع للطلب
-      await storage.createOrderTracking({
-        orderId: order.id,
-        status: 'pending',
-        message: 'تم استلام الطلب وجاري المراجعة',
-        createdBy: null, // NULL للعمليات التي يقوم بها النظام
-        createdByType: 'system'
-      });
-    } catch (notificationError) {
-      console.error('Error creating notifications:', notificationError);
-      // لا نوقف العملية إذا فشل في إنشاء الإشعارات
+    // التحقق من البيانات المطلوبة
+    if (!trackingData.status) {
+      return res.status(400).json({ error: 'Status is required' });
     }
 
-    res.status(201).json({
-      success: true,
-      order: {
-        id: order.id,
-        orderNumber,
-        status: 'pending',
-        estimatedTime: '30-45 دقيقة',
-        total: totalAmount
-      }
-    });
-
-  } catch (error: any) {
-    console.error("Create order error:", error);
-    
-    // Handle invalid UUID format
-    if (error.code === '22P02') {
-      return res.status(400).json({ 
-        error: "معرف المطعم غير صحيح", 
-        message: "Invalid restaurant ID format",
-        restaurantId: req.body.restaurantId 
-      });
-    }
-    
-    // Handle foreign key constraint violations
-    if (error.code === '23503') {
-      if (error.constraint_name === 'orders_restaurant_id_restaurants_id_fk') {
-        return res.status(400).json({ 
-          error: "المطعم المحدد غير موجود", 
-          message: "Restaurant not found",
-          restaurantId: req.body.restaurantId 
-        });
-      }
-    }
-    
-    // Handle other specific database errors
-    if (error.code) {
-      return res.status(400).json({ 
-        error: "خطأ في البيانات المرسلة", 
-        message: "Invalid data provided",
-        details: error.message 
-      });
-    }
-    
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    const newTracking = await db.createOrderTracking(trackingData);
+    res.status(201).json(newTracking);
+  } catch (error) {
+    console.error('Error creating order tracking:', error);
+    res.status(500).json({ error: 'Failed to create order tracking' });
   }
 });
 
 // الحصول على طلبات العميل
-router.get("/customer/:phone", async (req, res) => {
+router.get('/customer/:customerId', async (req, res) => {
   try {
-    const phone = req.params.phone.trim();
-    
-    if (!phone) {
-      return res.status(400).json({ 
-        error: "رقم الهاتف مطلوب",
-        message: "Phone number is required" 
-      });
-    }
-    
-    const orders = await storage.getOrders();
-    
-    // فلترة الطلبات حسب رقم هاتف العميل فقط - إصلاح مشكلة أمنية مهمة
-    const customerOrders = orders.filter(order => 
-      order.customerPhone === phone || 
-      order.customerPhone === phone.replace(/\s+/g, '') ||
-      order.customerPhone.replace(/\s+/g, '') === phone.replace(/\s+/g, '')
-    );
-    
-    res.json(customerOrders);
+    const orders = await db.getOrdersByCustomerId(req.params.customerId);
+    res.json(orders);
   } catch (error) {
-    console.error("خطأ في الحصول على طلبات العميل:", error);
-    res.status(500).json({ error: "خطأ في الخادم" });
-  }
-});
-
-// الحصول على تفاصيل طلب
-router.get("/:orderId", async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const orders = await storage.getOrders();
-    const order = orders.find(o => o.id === orderId);
-    
-    if (!order) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-    
-    res.json({
-      ...order
-    });
-  } catch (error) {
-    console.error("Get order error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error fetching customer orders:', error);
+    res.status(500).json({ error: 'Failed to fetch customer orders' });
   }
 });
 
 // تحديث حالة الطلب
-router.patch("/:orderId/status", async (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { status, message, updatedBy, updatedByType } = req.body;
-
+    const { status } = req.body;
     if (!status) {
-      return res.status(400).json({ error: "Status is required" });
+      return res.status(400).json({ error: 'Status is required' });
     }
 
-    // تحديث حالة الطلب
-    await storage.updateOrder(orderId, { status });
-
-    // الحصول على الطلب المحدث
-    const orders = await storage.getOrders();
-    const order = orders.find(o => o.id === orderId);
-
-    // إنشاء تتبع للطلب
-    let statusMessage = '';
-    switch (status) {
-      case 'confirmed':
-        statusMessage = 'تم تأكيد الطلب وجاري التحضير';
-        break;
-      case 'preparing':
-        statusMessage = 'جاري تحضير الطلب';
-        break;
-      case 'ready':
-        statusMessage = 'الطلب جاهز وجاري البحث عن موصل';
-        break;
-      case 'picked_up':
-        statusMessage = 'تم استلام الطلب من قبل الموصل';
-        break;
-      case 'on_way':
-        statusMessage = 'الموصل في الطريق إليك';
-        break;
-      case 'delivered':
-        statusMessage = 'تم تسليم الطلب بنجاح';
-        break;
-      case 'cancelled':
-        statusMessage = 'تم إلغاء الطلب';
-        break;
-      default:
-        statusMessage = `تم تحديث حالة الطلب إلى ${status}`;
+    const updatedOrder = await db.updateOrderStatus(req.params.id, status);
+    if (!updatedOrder) {
+      return res.status(404).json({ error: 'Order not found' });
     }
-
-    try {
-      await storage.createOrderTracking({
-        orderId,
-        status,
-        message: statusMessage,
-        createdBy: updatedBy || null, // NULL للعمليات التي يقوم بها النظام
-        createdByType: updatedByType || 'system'
-      });
-
-      // إرسال إشعار للعميل
-      if (order) {
-        await storage.createNotification({
-          type: 'order_status',
-          title: 'تحديث حالة الطلب',
-          message: `طلبك رقم ${order.orderNumber}: ${statusMessage}`,
-          recipientType: 'customer',
-          recipientId: order.customerId || order.customerPhone,
-          orderId
-        });
-      }
-    } catch (trackingError) {
-      console.error('Error creating tracking:', trackingError);
-    }
-
-    res.json({ success: true, status });
+    res.json(updatedOrder);
   } catch (error) {
-    console.error("Update order status error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// إلغاء الطلب
-router.patch("/:orderId/cancel", async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { reason, cancelledBy } = req.body;
-
-    await storage.updateOrder(orderId, { status: 'cancelled' });
-
-    // إنشاء تتبع للطلب
-    try {
-      await storage.createOrderTracking({
-        orderId,
-        status: 'cancelled',
-        message: reason || 'تم إلغاء الطلب',
-        createdBy: cancelledBy || null, // NULL للعمليات التي يقوم بها النظام
-        createdByType: 'system'
-      });
-
-      // إشعار العميل
-      const orders = await storage.getOrders();
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        await storage.createNotification({
-          type: 'order_cancelled',
-          title: 'تم إلغاء الطلب',
-          message: `تم إلغاء طلبك رقم ${order.orderNumber}${reason ? ': ' + reason : ''}`,
-          recipientType: 'customer',
-          recipientId: order.customerId || order.customerPhone,
-          orderId
-        });
-      }
-    } catch (trackingError) {
-      console.error('Error creating tracking:', trackingError);
-    }
-
-    res.json({ success: true, status: 'cancelled' });
-  } catch (error) {
-    console.error("Cancel order error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: 'Failed to update order status' });
   }
 });
 

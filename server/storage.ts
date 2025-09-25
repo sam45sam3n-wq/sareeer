@@ -110,12 +110,15 @@ export interface IStorage {
   getAdminById(id: string): Promise<AdminUser | undefined>;
 
   // Notification methods
-  getNotifications(recipientId?: string, type?: string): Promise<Notification[]>;
+   // getNotifications(recipientId?: string, type?: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
 
   // Order tracking methods
   createOrderTracking(tracking: {orderId: string; status: string; message: string; createdBy: string; createdByType: string}): Promise<{id: string; orderId: string; status: string; message: string; createdBy: string; createdByType: string; createdAt: Date}>;
   getOrderTracking(orderId: string): Promise<{id: string; orderId: string; status: string; message: string; createdBy: string; createdByType: string; createdAt: Date}[]>;
+
+  // Enhanced notification methods
+  getNotifications(recipientType?: string, recipientId?: string, unread?: boolean): Promise<Notification[]>;
 
   // Search methods
   searchRestaurants(query: string, category?: string): Promise<Restaurant[]>;
@@ -390,9 +393,9 @@ export class MemStorage implements IStorage {
         id: randomUUID(),
         name: "مدير النظام",
         username: "admin",
-        email: "admin@example.com",
+        email: "aymenpro124@gmail.com",
         phone: "+967771234567",
-        password: "$2b$10$oBgkj60B2v86gRLbhsEtw.CwHkfpW2cKRFx8BADK6z6n42r5fBJNG", // 'secret'
+        password: "777146387", // كلمة مرور غير مشفرة للاختبار
         userType: "admin",
         isActive: true,
         createdAt: new Date(),
@@ -403,7 +406,7 @@ export class MemStorage implements IStorage {
         username: "driver01",
         email: "driver@example.com",
         phone: "+967771234568",
-        password: "$2b$10$oBgkj60B2v86gRLbhsEtw.CwHkfpW2cKRFx8BADK6z6n42r5fBJNG", // 'secret'
+        password: "driver123", // كلمة مرور غير مشفرة للاختبار
         userType: "driver",
         isActive: true,
         createdAt: new Date(),
@@ -1017,14 +1020,17 @@ async updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promi
   // تم حذف جميع طرق إدارة الجلسات - لا حاجة لها بعد إزالة نظام المصادقة
 
   // Notification methods
-  async getNotifications(recipientId?: string, type?: string): Promise<Notification[]> {
+  async getNotifications(recipientType?: string, recipientId?: string, unread?: boolean): Promise<Notification[]> {
     let notifications = Array.from(this.notifications.values());
     
+    if (recipientType) {
+      notifications = notifications.filter(n => n.recipientType === recipientType);
+    }
     if (recipientId) {
       notifications = notifications.filter(n => n.recipientId === recipientId);
     }
-    if (type) {
-      notifications = notifications.filter(n => n.type === type);
+    if (unread !== undefined) {
+      notifications = notifications.filter(n => n.isRead === !unread);
     }
     
     return notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -1122,6 +1128,6 @@ async updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promi
 import { dbStorage } from './db';
 
 // Switch between MemStorage and DatabaseStorage
-const USE_MEMORY_STORAGE = false; // Set to false to use database - switched for data persistence
+const USE_MEMORY_STORAGE = true; // Set to true to use memory storage - switched for Replit environment
 
 export const storage = USE_MEMORY_STORAGE ? new MemStorage() : dbStorage;

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import { 
   adminUsers, categories, restaurantSections, restaurants, 
   menuItems, users, customers, userAddresses, orders, specialOffers, 
@@ -37,11 +37,11 @@ function getDb() {
       throw new Error("DATABASE_URL must be defined in environment variables");
     }
     
-    console.log("🗺️ Using PostgreSQL database connection...");  // Debug log
+    console.log("🗺️ Using database connection...");  // Debug log
     console.log("🔗 DATABASE_URL exists:", !!databaseUrl);
     
-    // Use DATABASE_URL for PostgreSQL connection
-    const sqlClient = postgres(databaseUrl);
+    // Use DATABASE_URL as-is for secure Neon connection
+    const sqlClient = neon(databaseUrl);
     
     // Pass schema to enable db.query functionality
     const schema = {
@@ -183,22 +183,8 @@ export class DatabaseStorage {
   }
 
   async deleteRestaurant(id: string): Promise<boolean> {
-    try {
-      // أولاً: حذف جميع عناصر القائمة المرتبطة بالمطعم
-      await this.db.delete(menuItems).where(eq(menuItems.restaurantId, id));
-      
-      // ثانياً: تحديث الطلبات لفصلها عن المطعم (تعيين null)
-      await this.db.update(orders)
-        .set({ restaurantId: null })
-        .where(eq(orders.restaurantId, id));
-      
-      // ثالثاً: حذف المطعم نفسه
-      const result = await this.db.delete(restaurants).where(eq(restaurants.id, id));
-      return result.rowCount > 0;
-    } catch (error) {
-      console.error('خطأ في حذف المطعم:', error);
-      return false;
-    }
+    const result = await this.db.delete(restaurants).where(eq(restaurants.id, id));
+    return result.rowCount > 0;
   }
 
   // Menu Items
@@ -318,7 +304,7 @@ export class DatabaseStorage {
   // UI Settings (using systemSettings)
   async getUiSettings(): Promise<SystemSettings[]> {
     try {
-      const result = await this.db.select().from(systemSettings);
+      const result = await this.db.select().from(systemSettings).where(eq(systemSettings.isActive, true));
       // Ensure we always return an array, even if result is null or undefined
       return Array.isArray(result) ? result : [];
     } catch (error) {
@@ -329,39 +315,17 @@ export class DatabaseStorage {
 
   async getUiSetting(key: string): Promise<SystemSettings | undefined> {
     const [setting] = await this.db.select().from(systemSettings).where(
-      eq(systemSettings.key, key)
+      and(eq(systemSettings.key, key), eq(systemSettings.isActive, true))
     );
     return setting;
   }
 
   async updateUiSetting(key: string, value: string): Promise<SystemSettings | undefined> {
-    try {
-      // Try to update existing setting
-      const [updated] = await this.db.update(systemSettings)
-        .set({ value, updatedAt: new Date() })
-        .where(eq(systemSettings.key, key))
-        .returning();
-      
-      if (updated) {
-        return updated;
-      }
-      
-      // If no rows were updated, create new setting
-      const [newSetting] = await this.db.insert(systemSettings)
-        .values({
-          key,
-          value,
-          category: 'ui',
-          description: `UI setting: ${key}`,
-          isActive: true
-        })
-        .returning();
-      
-      return newSetting;
-    } catch (error) {
-      console.error('Error updating UI setting:', error);
-      return undefined;
-    }
+    const [updated] = await this.db.update(systemSettings)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(systemSettings.key, key))
+      .returning();
+    return updated;
   }
 
   async createUiSetting(setting: InsertSystemSettings): Promise<SystemSettings> {
