@@ -36,7 +36,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // تم حذف مسارات المصادقة - تم إزالة نظام المصادقة بالكامل
 
-
   // Users
   app.get("/api/users/:id", async (req, res) => {
     try {
@@ -475,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Assign order to driver
+  // Assign order to driver - الإصدار المصحح
   app.put("/api/orders/:id/assign-driver", async (req, res) => {
     try {
       const { id } = req.params;
@@ -502,19 +501,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Driver not found" });
       }
 
-      const updatedOrder = await storage.updateOrder(id, {
+      // تحديث بيانات الطلب بشكل صحيح
+      const updateData: any = {
         driverId,
         status: 'preparing',
         updatedAt: new Date()
-      });
+      };
+
+      // إضافة بيانات الموقع إذا كانت موجودة في الطلب الأصلي
+      if (order.customerLocationLat) {
+        updateData.customerLocationLat = order.customerLocationLat;
+      }
+      if (order.customerLocationLng) {
+        updateData.customerLocationLng = order.customerLocationLng;
+      }
+
+      const updatedOrder = await storage.updateOrder(id, updateData);
       
       if (!updatedOrder) {
         return res.status(404).json({ error: "Order not found" });
       }
       
-        // Ensure location data is properly handled
-        customerLocationLat: orderData.customerLocationLat || null,
-        customerLocationLng: orderData.customerLocationLng || null,
       // تحديث حالة السائق إلى مشغول
       await storage.updateDriver(driverId, { isAvailable: false });
 
@@ -757,22 +764,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ratings functionality temporarily disabled - would require additional database methods
 
   // ================= NOTIFICATIONS API =================
-/*
-app.get("/api/notifications", async (req, res) => {
-  try {
-    const { recipientType, recipientId, unread } = req.query;
-    const notifications = await storage.getNotifications(
-      recipientType as string, 
-      recipientId as string, 
-      unread === 'true'
-    );
-    res.json(notifications);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch notifications" });
-  }
-});
-*/
-
   app.post("/api/notifications", async (req, res) => {
     try {
       const validatedData = insertNotificationSchema.parse(req.body);
@@ -783,67 +774,7 @@ app.get("/api/notifications", async (req, res) => {
     }
   });
 
-  // Mark notification as read endpoint temporarily disabled - requires additional database method
-  /*
-  app.put("/api/notifications/:id/read", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const notification = await storage.markNotificationAsRead(id);
-      if (!notification) {
-        return res.status(404).json({ message: "Notification not found" });
-      }
-      res.json(notification);
-    } catch (error) {
-      res.status(400).json({ message: "Failed to update notification" });
-    }
-  });
-  */
-
-  // ================= WALLET & PAYMENTS API - DISABLED =================
-  // Wallet functionality temporarily disabled - would require additional database methods
-
-  // ================= SYSTEM SETTINGS API - DISABLED =================
-  // System settings functionality temporarily disabled - would require additional database methods
-
-  // ================= RESTAURANT EARNINGS API - DISABLED =================
-  // Restaurant earnings functionality temporarily disabled - would require additional database methods
-
-  // ================= ANALYTICS & REPORTS API - DISABLED =================
-  // Analytics functionality temporarily disabled - would require additional database methods
-
   // ================= ADVANCED ORDER MANAGEMENT =================
-  app.put("/api/orders/:id/assign-driver", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { driverId } = req.body;
-      
-      // Update order with driver
-      const order = await storage.updateOrder(id, { 
-        driverId,
-        status: 'assigned',
-        updatedAt: new Date()
-      });
-      
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      
-      // Create notification for driver
-      await storage.createNotification({
-        type: 'order',
-        title: 'طلب جديد',
-        message: `تم تكليفك بطلب جديد رقم ${id.slice(0, 8)}`,
-        recipientType: 'driver',
-        recipientId: driverId,
-        orderId: id
-      });
-      
-      res.json(order);
-    } catch (error) {
-      res.status(400).json({ message: "Failed to assign driver" });
-    }
-  });
-
   app.get("/api/orders/track/:id", async (req, res) => {
     try {
       const { id } = req.params;
