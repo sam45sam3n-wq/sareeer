@@ -21,6 +21,23 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isFeatureEnabled } = useUiSettings();
   
+  // الاستماع لتحديثات إعدادات الواجهة
+  useEffect(() => {
+    const handleUiSettingsChange = (event: CustomEvent) => {
+      const { key, value } = event.detail;
+      
+      // إعادة تحميل الصفحة للتطبيقات الحساسة للإعدادات
+      if (['show_admin_panel', 'show_delivery_app', 'show_orders_page', 'show_track_orders_page'].includes(key)) {
+        // تحديث فوري للتنقل
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('uiSettingsChanged', handleUiSettingsChange as EventListener);
+    return () => {
+      window.removeEventListener('uiSettingsChanged', handleUiSettingsChange as EventListener);
+    };
+  }, []);
   
   // Get visibility settings from UiSettings instead of localStorage
   const showAdminPanel = isFeatureEnabled('show_admin_panel');
@@ -90,17 +107,13 @@ export default function Layout({ children }: LayoutProps) {
 
   // وظيفة التعامل مع النقر على أيقونة الملف الشخصي - الانتقال إلى تطبيق التوصيل الحقيقي
   const handleProfileIconClick = () => {
-    // التحقق من تسجيل الدخول كسائق
-    const driverToken = localStorage.getItem('driver_token');
-    const driverUser = localStorage.getItem('driver_user');
+    toast({
+      title: "الانتقال إلى تطبيق التوصيل",
+      description: "مرحباً بك في تطبيق السائق",
+    });
     
-    if (driverToken && driverUser) {
-      // إذا كان مسجل دخول، انتقل مباشرة لتطبيق السائق
-      window.location.href = '/driver';
-    } else {
-      // إذا لم يكن مسجل دخول، انتقل لصفحة تسجيل الدخول
-      window.location.href = '/driver-login';
-    }
+    // الانتقال المباشر إلى تطبيق التوصيل الحقيقي
+    window.location.href = '/driver';
   };
 
 
