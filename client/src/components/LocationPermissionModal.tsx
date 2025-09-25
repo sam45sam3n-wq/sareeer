@@ -7,7 +7,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, Navigation, Shield } from 'lucide-react';
+import { MapPin, Navigation, Shield, Phone, Bell, Camera } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface LocationPermissionModalProps {
   onPermissionGranted: (position: GeolocationPosition) => void;
@@ -17,11 +18,46 @@ interface LocationPermissionModalProps {
 export function LocationPermissionModal({ onPermissionGranted, onPermissionDenied }: LocationPermissionModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [requestedPermissions, setRequestedPermissions] = useState<string[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     checkPermissionStatus();
   }, []);
 
+  // Request multiple permissions for better app functionality
+  const requestAllPermissions = async () => {
+    const permissions = [];
+    
+    // Location permission
+    try {
+      await getCurrentLocation();
+      permissions.push('location');
+    } catch (error) {
+      console.error('Location permission denied:', error);
+    }
+
+    // Notification permission
+    try {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          permissions.push('notifications');
+        }
+      }
+    } catch (error) {
+      console.error('Notification permission error:', error);
+    }
+
+    setRequestedPermissions(permissions);
+    
+    if (permissions.length > 0) {
+      toast({
+        title: "تم منح الصلاحيات",
+        description: `تم منح ${permissions.length} صلاحية للتطبيق`,
+      });
+    }
+  };
   const checkPermissionStatus = async () => {
     if ('permissions' in navigator) {
       try {
@@ -69,7 +105,7 @@ export function LocationPermissionModal({ onPermissionGranted, onPermissionDenie
   };
 
   const requestLocationPermission = () => {
-    getCurrentLocation();
+    requestAllPermissions();
   };
 
   const handleDenyPermission = () => {
@@ -86,10 +122,10 @@ export function LocationPermissionModal({ onPermissionGranted, onPermissionDenie
             <MapPin className="h-6 w-6 text-primary" />
           </div>
           <DialogTitle className="text-xl font-bold">
-            السماح بالوصول للموقع
+            السماح بالوصول للخدمات
           </DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
-            نحتاج إلى معرفة موقعك لتوصيل طلباتك بدقة وعرض المطاعم القريبة منك
+            نحتاج إلى بعض الصلاحيات لتحسين تجربتك في التطبيق
           </DialogDescription>
         </DialogHeader>
 
@@ -112,6 +148,13 @@ export function LocationPermissionModal({ onPermissionGranted, onPermissionDenie
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5">
+              <Bell className="h-5 w-5 text-primary flex-shrink-0" />
+              <div className="text-sm">
+                <div className="font-medium">الإشعارات الفورية</div>
+                <div className="text-muted-foreground">تحديثات حالة الطلب والعروض الجديدة</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5">
               <Shield className="h-5 w-5 text-primary flex-shrink-0" />
               <div className="text-sm">
                 <div className="font-medium">حماية خصوصيتك</div>
@@ -125,14 +168,16 @@ export function LocationPermissionModal({ onPermissionGranted, onPermissionDenie
               variant="outline" 
               onClick={handleDenyPermission}
               className="flex-1"
+              data-testid="deny-permissions-button"
             >
               تخطي
             </Button>
             <Button 
               onClick={requestLocationPermission}
               className="flex-1"
+              data-testid="grant-permissions-button"
             >
-              السماح بالوصول
+              منح الصلاحيات
             </Button>
           </div>
         </div>

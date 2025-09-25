@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import { 
   BarChart3, 
   Store, 
@@ -15,7 +16,8 @@ import {
   Users,
   Bell,
   User,
-  Tag
+  Tag,
+  Search
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -25,6 +27,7 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const menuItems = [
     { 
@@ -101,6 +104,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     window.location.href = '/';
   };
 
+  // Filter menu items based on search
+  const filteredMenuItems = menuItems.filter(item =>
+    item.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   const currentPath = window.location.pathname;
 
   const SidebarContent = () => (
@@ -131,9 +139,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="p-4 border-b">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="البحث في القوائم..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pr-10 text-sm"
+            data-testid="admin-menu-search"
+          />
+        </div>
+      </div>
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => {
+        {filteredMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPath === item.path;
           
@@ -146,6 +167,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   ? 'bg-blue-500 text-white shadow-lg'
                   : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
               }`}
+              data-testid={`admin-nav-${item.path.split('/').pop()}`}
             >
               <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-600'}`} />
               <div className="flex-1">
@@ -159,6 +181,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </button>
           );
         })}
+        
+        {/* No Results Message */}
+        {searchTerm && filteredMenuItems.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">لا توجد نتائج للبحث</p>
+            <p className="text-xs">جرب كلمات أخرى</p>
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
@@ -167,6 +198,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           variant="outline"
           onClick={handleLogout}
           className="w-full flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+          data-testid="admin-logout-button"
         >
           <LogOut className="h-4 w-4" />
           تسجيل الخروج

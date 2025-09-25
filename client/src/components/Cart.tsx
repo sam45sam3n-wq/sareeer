@@ -1,16 +1,9 @@
 import { useState } from 'react';
 import { Minus, Plus, Trash2, ShoppingBag, X } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
-import { MapPicker } from './MapPicker';
+import { GoogleMapsLocationPicker, LocationData } from './GoogleMapsLocationPicker';
 import { apiRequest } from '@/lib/queryClient';
-
-interface LocationData {
-  lat: number;
-  lng: number;
-  address: string;
-  area?: string;
-  city?: string;
-}
+import { useToast } from '@/hooks/use-toast';
 
 interface CartProps {
   isOpen: boolean;
@@ -21,13 +14,84 @@ export function Cart({ isOpen, onClose }: CartProps) {
   const { state, updateQuantity, removeItem, addNotes, clearCart } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number>(5);
+  const { toast } = useToast();
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
+    email: '',
     notes: ''
   });
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   if (!isOpen) return null;
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Enhanced validation function
+  const validateForm = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    // Name validation
+    if (!customerInfo.name.trim()) {
+      errors.customerName = 'الاسم مطلوب';
+    } else if (customerInfo.name.trim().length < 2) {
+      errors.customerName = 'الاسم يجب أن يكون على الأقل حرفين';
+    }
+
+    // Phone validation - Yemen phone format
+    if (!customerInfo.phone.trim()) {
+      errors.customerPhone = 'رقم الهاتف مطلوب';
+    } else if (!/^(7[0-9]{8}|00967[7][0-9]{8}|\+967[7][0-9]{8})$/.test(customerInfo.phone.replace(/\s/g, ''))) {
+      errors.customerPhone = 'رقم الهاتف غير صحيح. مثال: 773123456';
+    }
+
+    // Address validation
+    if (!selectedLocation) {
+      errors.deliveryAddress = 'يرجى تحديد موقع التوصيل';
+    }
+
+    return errors;
+  };
+
+  // Handle location selection and calculate delivery fee
+  const handleLocationSelect = (location: LocationData) => {
+    setSelectedLocation(location);
+    
+    // Calculate delivery fee based on distance
+    if (location && state.items.length > 0) {
+      // Default restaurant location (Sana'a center)
+      const restaurantLat = 15.3694;
+      const restaurantLng = 44.1910;
+      
+      const distance = calculateDistance(
+        restaurantLat, 
+        restaurantLng, 
+        location.lat, 
+        location.lng
+      );
+      
+      // Calculate fee: minimum 3 rials, then 2 rials per km
+      const calculatedFee = Math.max(3, Math.round(distance * 2));
+      setCalculatedDeliveryFee(calculatedFee);
+      
+      toast({
+        title: "تم حساب رسوم التوصيل",
+        description: `المسافة: ${distance.toFixed(1)} كم - الرسوم: ${calculatedFee} ريال`,
+      });
+    }
+  };
 
   // Function to save customer info to user profile
   const saveCustomerInfoToProfile = async () => {
@@ -39,6 +103,7 @@ export function Cart({ isOpen, onClose }: CartProps) {
       await apiRequest('PUT', `/api/users/${userId}`, {
         name: customerInfo.name,
         phone: customerInfo.phone,
+        email: customerInfo.email,
         address: selectedLocation?.address,
       });
     } catch (error) {
@@ -48,13 +113,16 @@ export function Cart({ isOpen, onClose }: CartProps) {
   };
 
   const handleCheckout = async () => {
-    if (!selectedLocation) {
-      alert('الرجاء تحديد موقع التوصيل');
-      return;
-    }
+    // Validate form
+    const errors = validateForm();
+    setValidationErrors(errors);
 
-    if (!customerInfo.name || !customerInfo.phone) {
-      alert('الرجاء إدخال الاسم ورقم الهاتف');
+    if (Object.keys(errors).length > 0) {
+      toast({
+        title: "معلومات غير صحيحة",
+        description: "يرجى تصحيح الأخطاء المذكورة في النموذج",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -62,13 +130,17 @@ export function Cart({ isOpen, onClose }: CartProps) {
       const orderData = {
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
+        customerEmail: customerInfo.email,
         deliveryAddress: selectedLocation.address,
+        customerLocationLat: selectedLocation.lat,
+        customerLocationLng: selectedLocation.lng,
         notes: customerInfo.notes,
         paymentMethod: 'cash',
         items: JSON.stringify(state.items),
         subtotal: state.subtotal,
-        deliveryFee: state.deliveryFee,
-        totalAmount: state.total,
+        deliveryFee: calculatedDeliveryFee,
+        totalAmount: state.subtotal + calculatedDeliveryFee,
+        total: state.subtotal + calculatedDeliveryFee,
         restaurantId: state.restaurantId
       };
 
@@ -86,7 +158,10 @@ export function Cart({ isOpen, onClose }: CartProps) {
         // Save customer info to profile after successful order
         await saveCustomerInfoToProfile();
         
-        alert(`تم تأكيد طلبك! رقم الطلب: ${order.orderNumber}`);
+        toast({
+          title: "تم تأكيد طلبك بنجاح! 🎉",
+          description: `رقم الطلب: ${order.orderNumber || order.id}`,
+        });
         clearCart();
         onClose();
       } else {
@@ -94,7 +169,11 @@ export function Cart({ isOpen, onClose }: CartProps) {
       }
     } catch (error) {
       console.error('Order error:', error);
-      alert('حدث خطأ في إرسال الطلب. الرجاء المحاولة مرة أخرى.');
+      toast({
+        title: "خطأ في إرسال الطلب",
+        description: "يرجى المحاولة مرة أخرى",
+        variant: "destructive",
+      });
     }
   };
 
@@ -197,37 +276,11 @@ export function Cart({ isOpen, onClose }: CartProps) {
                     </div>
                     <div className="flex justify-between">
                       <span>رسوم التوصيل:</span>
-                      <span>
-                        {isCalculatingFee ? (
-                          <span className="text-sm">جاري الحساب...</span>
-                        ) : (
-                          `${(deliveryInfo?.deliveryFee || state.deliveryFee).toFixed(2)} ر.ي`
-                        )}
-                      </span>
+                      <span>{calculatedDeliveryFee.toFixed(2)} ر.ي</span>
                     </div>
-                    {deliveryInfo && deliveryInfo.distance > 0 && (
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <div className="flex justify-between">
-                          <span>المسافة:</span>
-                          <span>{deliveryInfo.distance} كم</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>رسوم أساسية:</span>
-                          <span>{deliveryInfo.baseFee.toFixed(2)} ر.ي</span>
-                        </div>
-                        {deliveryInfo.distanceFee > 0 && (
-                          <div className="flex justify-between">
-                            <span>رسوم المسافة:</span>
-                            <span>{deliveryInfo.distanceFee.toFixed(2)} ر.ي</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>المجموع الكلي:</span>
-                      <span className="text-red-500">
-                        {(state.subtotal + (deliveryInfo?.deliveryFee || state.deliveryFee)).toFixed(2)} ر.ي
-                      </span>
+                      <span className="text-red-500">{(state.subtotal + calculatedDeliveryFee).toFixed(2)} ر.ي</span>
                     </div>
                   </div>
 
@@ -244,18 +297,49 @@ export function Cart({ isOpen, onClose }: CartProps) {
                   <div>
                     <h3 className="font-medium mb-2">معلومات العميل</h3>
                     <div className="space-y-3">
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="الاسم *"
+                          value={customerInfo.name}
+                          onChange={(e) => {
+                            setCustomerInfo({...customerInfo, name: e.target.value});
+                            if (validationErrors.customerName) {
+                              setValidationErrors(prev => ({...prev, customerName: ''}));
+                            }
+                          }}
+                          className={`w-full p-3 border rounded-lg ${
+                            validationErrors.customerName ? 'border-red-500' : ''
+                          }`}
+                        />
+                        {validationErrors.customerName && (
+                          <p className="text-red-500 text-xs mt-1">{validationErrors.customerName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="tel"
+                          placeholder="رقم الهاتف *"
+                          value={customerInfo.phone}
+                          onChange={(e) => {
+                            setCustomerInfo({...customerInfo, phone: e.target.value});
+                            if (validationErrors.customerPhone) {
+                              setValidationErrors(prev => ({...prev, customerPhone: ''}));
+                            }
+                          }}
+                          className={`w-full p-3 border rounded-lg ${
+                            validationErrors.customerPhone ? 'border-red-500' : ''
+                          }`}
+                        />
+                        {validationErrors.customerPhone && (
+                          <p className="text-red-500 text-xs mt-1">{validationErrors.customerPhone}</p>
+                        )}
+                      </div>
                       <input
-                        type="text"
-                        placeholder="الاسم *"
-                        value={customerInfo.name}
-                        onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                        className="w-full p-3 border rounded-lg"
-                      />
-                      <input
-                        type="tel"
-                        placeholder="رقم الهاتف *"
-                        value={customerInfo.phone}
-                        onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                        type="email"
+                        placeholder="البريد الإلكتروني (اختياري)"
+                        value={customerInfo.email}
+                        onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
                         className="w-full p-3 border rounded-lg"
                       />
                       <textarea
@@ -269,10 +353,21 @@ export function Cart({ isOpen, onClose }: CartProps) {
                   </div>
 
                   {/* Location Picker */}
-                  <MapPicker
-                    onLocationSelect={setSelectedLocation}
+                  <GoogleMapsLocationPicker
+                    onLocationSelect={handleLocationSelect}
                     className="border-0 shadow-none p-0"
                   />
+
+                  {/* Delivery Fee Info */}
+                  {selectedLocation && (
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="text-sm text-blue-800">
+                        <div className="font-medium">تفاصيل التوصيل:</div>
+                        <div>المسافة المقدرة: {calculateDistance(15.3694, 44.1910, selectedLocation.lat, selectedLocation.lng).toFixed(1)} كم</div>
+                        <div>رسوم التوصيل: {calculatedDeliveryFee} ريال</div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
