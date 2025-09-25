@@ -21,28 +21,27 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isFeatureEnabled } = useUiSettings();
   
-  
-  // Get visibility settings from UiSettings instead of localStorage
+  // الحصول على إعدادات الرؤية من UiSettings بدلاً من localStorage
   const showAdminPanel = isFeatureEnabled('show_admin_panel');
   const showDeliveryApp = isFeatureEnabled('show_delivery_app'); 
   const showOrdersPage = isFeatureEnabled('show_orders_page');
   const showTrackOrdersPage = isFeatureEnabled('show_track_orders_page');
 
-  // Settings are now handled automatically by UiSettings context
-  // No need for manual event listeners
+  // الإعدادات تُدار تلقائياً بواسطة UiSettings context
+  // لا حاجة لمستمعي الأحداث اليدوية
 
   const isAdminPage = location.startsWith('/admin');
   const isDeliveryPage = location.startsWith('/delivery');
 
-  // Dynamic navigation items based on visibility settings
+  // عناصر التنقل الديناميكية حسب إعدادات الرؤية
   const navigationItems = [
     { icon: Home, label: 'الرئيسية', path: '/', testId: 'nav-home' },
-    { icon: Search, label: 'البحث', path: '/search', testId: 'nav-search' },
+    ...(isFeatureEnabled('show_search_bar') ? [{ icon: Search, label: 'البحث', path: '/search', testId: 'nav-search' }] : []),
     ...(showOrdersPage ? [{ icon: Receipt, label: 'طلباتي', path: '/orders', testId: 'nav-orders' }] : []),
     { icon: User, label: 'الملف الشخصي', path: '/profile', testId: 'nav-profile' },
   ];
 
-  // Dynamic sidebar menu items based on visibility settings
+  // عناصر القائمة الجانبية الديناميكية حسب إعدادات الرؤية
   const baseSidebarMenuItems: Array<{
     icon: React.ComponentType<any>;
     label: string;
@@ -58,7 +57,7 @@ export default function Layout({ children }: LayoutProps) {
     { icon: Shield, label: 'سياسة الخصوصية', path: '/privacy', testId: 'sidebar-privacy' },
   ];
   
-  // Admin and delivery buttons (conditionally added)
+  // أزرار الإدارة والتوصيل (تُضاف شرطياً)
   const adminDeliveryItems: Array<{
     icon: React.ComponentType<any>;
     label: string;
@@ -85,20 +84,34 @@ export default function Layout({ children }: LayoutProps) {
     });
   }
   
-  // Complete sidebar menu items
+  // عناصر القائمة الجانبية الكاملة
   const sidebarMenuItems = [...baseSidebarMenuItems, ...adminDeliveryItems];
 
-  // وظيفة التعامل مع النقر على أيقونة الملف الشخصي - الانتقال إلى تطبيق التوصيل الحقيقي
+  // وظيفة التعامل مع النقر على أيقونة الملف الشخصي
   const handleProfileIconClick = () => {
-    // التحقق من تسجيل الدخول كسائق
+    // فتح صفحة البحث إذا كانت مفعلة، وإلا الانتقال للملف الشخصي
+    if (isFeatureEnabled('show_search_bar')) {
+      setLocation('/search');
+    } else {
+      setLocation('/profile');
+    }
+  };
+
+  // وظيفة التعامل مع النقر على أيقونة البحث
+  const handleSearchIconClick = () => {
+    if (isFeatureEnabled('show_search_bar')) {
+      setLocation('/search');
+    }
+  };
+
+  // وظيفة التعامل مع النقر على أيقونة المستخدم للانتقال لتطبيق السائق
+  const handleUserIconClick = () => {
     const driverToken = localStorage.getItem('driver_token');
     const driverUser = localStorage.getItem('driver_user');
     
     if (driverToken && driverUser) {
-      // إذا كان مسجل دخول، انتقل مباشرة لتطبيق السائق
       window.location.href = '/driver';
     } else {
-      // إذا لم يكن مسجل دخول، انتقل لصفحة تسجيل الدخول
       window.location.href = '/driver-login';
     }
   };
@@ -106,10 +119,10 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="max-w-md mx-auto bg-background min-h-screen shadow-xl relative">
-      {/* Header - Redesigned to match reference */}
+      {/* الرأس - مُعاد تصميمه ليطابق المرجع */}
       <header className="gradient-header text-white sticky top-0 z-40 p-4">
         <div className="flex items-center justify-between mb-4">
-          {/* Right side - Menu and User icons */}
+          {/* الجانب الأيمن - أيقونات القائمة والمستخدم */}
           <div className="flex items-center gap-3">
             <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
               <SheetTrigger asChild>
@@ -164,7 +177,7 @@ export default function Layout({ children }: LayoutProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleProfileIconClick}
+              onClick={handleUserIconClick}
               className="relative text-white hover:bg-white/20"
               title="الانتقال إلى تطبيق التوصيل"
               data-testid="button-profile"
@@ -172,17 +185,20 @@ export default function Layout({ children }: LayoutProps) {
               <User className="h-6 w-6" />
             </Button>
             
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-              data-testid="button-search"
-            >
-              <Search className="h-6 w-6" />
-            </Button>
+            {isFeatureEnabled('show_search_bar') && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSearchIconClick}
+                className="text-white hover:bg-white/20"
+                data-testid="button-search"
+              >
+                <Search className="h-6 w-6" />
+              </Button>
+            )}
           </div>
 
-          {/* Center - Title and Location */}
+          {/* الوسط - العنوان والموقع */}
           <div className="text-center flex-1">
             <h1 className="text-xl font-bold text-white">السريع ون</h1>
             <div className="flex items-center justify-center gap-1 text-sm text-white/90">
@@ -191,25 +207,27 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
 
-          {/* Left side - Cart icon */}
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative cursor-pointer"
-               onClick={() => window.dispatchEvent(new CustomEvent('openCart'))}>
-            <ShoppingCart className="h-5 w-5 text-white" />
-            {getItemCount() > 0 && (
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                {getItemCount()}
-              </div>
-            )}
-          </div>
+          {/* الجانب الأيسر - أيقونة السلة */}
+          {isFeatureEnabled('show_cart_button') && (
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative cursor-pointer"
+                 onClick={() => window.dispatchEvent(new CustomEvent('openCart'))}>
+              <ShoppingCart className="h-5 w-5 text-white" />
+              {getItemCount() > 0 && (
+                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                  {getItemCount()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* المحتوى الرئيسي */}
       <main className="pb-20 bg-gray-50 min-h-screen">
         {children}
       </main>
 
-      {/* Bottom Navigation - hide on admin and delivery pages */}
+      {/* التنقل السفلي - يُخفى في صفحات الإدارة والتوصيل */}
       {!isAdminPage && !isDeliveryPage && (
         <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-card border-t border-border px-4 py-2">
           <div className="flex justify-around items-center">
@@ -238,8 +256,8 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
       )}
 
-      {/* Floating Cart Button - hide on admin and delivery pages */}
-      {getItemCount() > 0 && !isAdminPage && !isDeliveryPage && <CartButton />}
+      {/* زر السلة العائم - يُخفى في صفحات الإدارة والتوصيل */}
+      {isFeatureEnabled('show_cart_button') && getItemCount() > 0 && !isAdminPage && !isDeliveryPage && <CartButton />}
     </div>
   );
 }

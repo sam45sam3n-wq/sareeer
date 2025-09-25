@@ -47,12 +47,13 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // التحقق من تسجيل الدخول عند تحميل المكون
+  // التحقق من تسجيل الدخول والتوجيه التلقائي
   useEffect(() => {
     const token = localStorage.getItem('driver_token');
     const driverData = localStorage.getItem('driver_user');
     
     if (!token || !driverData) {
+      // إعادة توجيه فورية لصفحة تسجيل الدخول
       window.location.href = '/driver-login';
       return;
     }
@@ -67,14 +68,14 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     }
   }, []);
 
-  // جلب الطلبات المتاحة مع تحديث فوري
+  // جلب الطلبات المتاحة مع تحديث فوري كل 3 ثوانِ
   const { data: availableOrders = [], isLoading: availableLoading, refetch: refetchAvailable } = useQuery<Order[]>({
     queryKey: ['/api/orders', { status: 'confirmed', available: true }],
     queryFn: async () => {
       try {
         const response = await apiRequest('GET', '/api/orders?status=confirmed');
         const data = await response.json();
-        // Filter orders without assigned driver
+        // فلترة الطلبات غير المُعيَّنة لسائق
         const available = Array.isArray(data) ? data.filter(order => !order.driverId) : [];
         return available;
       } catch (error) {
@@ -86,7 +87,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     refetchInterval: 3000, // تحديث كل 3 ثوانِ للحصول على طلبات فورية
   });
 
-  // جلب طلبات السائق الحالية مع تحديث فوري
+  // جلب طلبات السائق الحالية مع تحديث فوري كل ثانيتين
   const { data: myOrders = [], isLoading: myOrdersLoading, refetch: refetchMyOrders } = useQuery<Order[]>({
     queryKey: ['/api/orders', { driverId: currentDriver?.id }],
     queryFn: async () => {
@@ -103,7 +104,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     enabled: !!currentDriver,
     refetchInterval: 2000, // تحديث كل ثانيتين للطلبات الحالية
   });
-  // جلب إحصائيات السائق
+  
+  // جلب إحصائيات السائق مع تحديث كل 30 ثانية
   const { data: driverStats } = useQuery({
     queryKey: ['/api/drivers', currentDriver?.id, 'stats'],
     queryFn: async () => {
@@ -120,7 +122,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     refetchInterval: 30000,
   });
 
-  // قبول طلب
+  // قبول طلب مع إشعار صوتي
   const acceptOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
       if (!currentDriver?.id) throw new Error('معرف السائق غير موجود');
@@ -139,13 +141,13 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
         description: `تم تعيين الطلب ${orderId.slice(0, 8)} لك`,
       });
       
-      // Play notification sound
+      // تشغيل صوت الإشعار
       if ('Audio' in window) {
         try {
           const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-          audio.play().catch(() => {}); // Ignore errors if audio fails
+          audio.play().catch(() => {}); // تجاهل الأخطاء إذا فشل الصوت
         } catch (error) {
-          // Ignore audio errors
+          // تجاهل أخطاء الصوت
         }
       }
     },
@@ -158,7 +160,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     }
   });
 
-  // تحديث حالة الطلب
+  // تحديث حالة الطلب مع إشعارات
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
       const response = await apiRequest('PUT', `/api/orders/${orderId}`, {
@@ -223,7 +225,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     }
   });
 
-  // مراقبة الطلبات الجديدة للإشعارات
+  // مراقبة الطلبات الجديدة للإشعارات الفورية
   useEffect(() => {
     if (availableOrders.length > 0 && driverStatus === 'available') {
       const latestOrderTime = Math.max(...availableOrders.map(order => 
@@ -233,7 +235,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
       if (latestOrderTime > lastNotificationTime) {
         setLastNotificationTime(latestOrderTime);
         
-        // إشعار صوتي ومرئي
+        // إشعار صوتي ومرئي فوري
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('طلب جديد متاح! 🔔', {
             body: `يوجد ${availableOrders.length} طلب متاح للتوصيل`,
@@ -250,7 +252,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     }
   }, [availableOrders, driverStatus, lastNotificationTime, toast]);
 
-  // طلب إذن الإشعارات
+  // طلب إذن الإشعارات عند تحميل التطبيق
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -277,6 +279,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     return statusMap[status] || status;
   };
 
+  // الحصول على لون الحالة
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -291,6 +294,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     return colorMap[status] || 'bg-gray-100 text-gray-800';
   };
 
+  // الحصول على الحالة التالية في سير العمل
   const getNextStatus = (currentStatus: string) => {
     const statusFlow: Record<string, string> = {
       confirmed: 'preparing',
@@ -302,6 +306,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     return statusFlow[currentStatus];
   };
 
+  // الحصول على تسمية الحالة التالية
   const getNextStatusLabel = (currentStatus: string) => {
     const labels: Record<string, string> = {
       confirmed: 'بدء التحضير',
@@ -313,6 +318,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     return labels[currentStatus] || 'تحديث الحالة';
   };
 
+  // تحليل عناصر الطلب من JSON
   const getOrderItems = (itemsString: string) => {
     try {
       return JSON.parse(itemsString);
@@ -321,38 +327,38 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     }
   };
 
+  // تنسيق العملة
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return `${num.toFixed(2)} ريال`;
   };
 
-  // فتح خرائط جوجل للتنقل
+  // فتح خرائط جوجل للتنقل مع دعم الأجهزة المحمولة
   const openGoogleMaps = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
     
-    // للأجهزة المحمولة، محاولة فتح تطبيق الخرائط
+    // للأجهزة المحمولة، محاولة فتح تطبيق الخرائط أولاً
     if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-      // محاولة فتح تطبيق خرائط جوجل
       const mobileAppUrl = `comgooglemaps://?q=${encodedAddress}`;
       window.location.href = mobileAppUrl;
       
-      // إذا فشل فتح التطبيق، فتح المتصفح بعد ثانية
+      // إذا فشل فتح التطبيق، فتح المتصفح
       setTimeout(() => {
         const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
         window.open(webUrl, '_blank');
       }, 1000);
     } else {
-      // للحاسوب، فتح في المتصفح
+      // للحاسوب، فتح في المتصفح مباشرة
       const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
       window.open(webUrl, '_blank');
     }
   };
 
-  // فلترة الطلبات حسب البحث والحالة
+  // فلترة الطلبات حسب البحث والحالة المحددة
   const filterOrders = (orders: Order[]) => {
     let filtered = orders;
     
-    // فلترة حسب البحث
+    // فلترة حسب مصطلح البحث
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(order => 
@@ -363,14 +369,15 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
       );
     }
     
-    // فلترة حسب الحالة
+    // فلترة حسب الحالة المحددة
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
     
     return filtered;
   };
-  // تصنيف الطلبات حسب الحالة
+  
+  // تصنيف الطلبات حسب الحالة للتبويبات
   const categorizeOrders = (orders: Order[]) => {
     return {
       available: orders.filter(order => 
@@ -394,11 +401,11 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   const allOrders = [...availableOrders, ...myOrders];
   const categorizedOrders = categorizeOrders(allOrders);
 
-  // مكون عرض الطلب
+  // مكون عرض الطلب مع جميع التفاصيل والإجراءات
   const OrderCard = ({ order, type }: { order: Order; type: 'available' | 'accepted' | 'inProgress' | 'completed' }) => {
     const items = getOrderItems(order.items);
     const totalAmount = parseFloat(order.totalAmount || '0');
-    const commission = Math.round(totalAmount * 0.15); // 15% عمولة
+    const commission = Math.round(totalAmount * 0.15); // 15% عمولة السائق
 
     return (
       <Card key={order.id} className="hover:shadow-md transition-shadow">
@@ -424,7 +431,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* معلومات العميل */}
+          {/* معلومات العميل والتواصل */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-muted-foreground" />
@@ -442,7 +449,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             )}
           </div>
 
-          {/* تفاصيل الطلب */}
+          {/* تفاصيل الطلب المختصرة */}
           <div className="bg-gray-50 p-3 rounded-lg">
             <h5 className="font-medium mb-2">تفاصيل الطلب:</h5>
             <div className="space-y-1">
@@ -460,7 +467,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             </div>
           </div>
 
-          {/* أزرار الإجراءات */}
+          {/* أزرار الإجراءات حسب نوع الطلب */}
           <div className="flex gap-2">
             {type === 'available' && (
               <>
@@ -537,7 +544,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
-      {/* Header */}
+      {/* رأس التطبيق مع معلومات السائق */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -552,7 +559,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             </div>
             
             <div className="flex items-center gap-4">
-              {/* مؤشر الطلبات الجديدة */}
+              {/* مؤشر الطلبات الجديدة مع إشعار بصري */}
               {categorizedOrders.available.length > 0 && driverStatus === 'available' && (
                 <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-full">
                   <Bell className="h-4 w-4 text-red-500 animate-pulse" />
@@ -562,7 +569,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
                 </div>
               )}
 
-              {/* حالة السائق */}
+              {/* مفتاح حالة السائق */}
               <div className="flex items-center gap-2">
                 <Label htmlFor="driver-status" className="text-sm">متاح للعمل</Label>
                 <Switch
@@ -588,7 +595,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
         </div>
       </header>
 
-      {/* إحصائيات سريعة */}
+      {/* إحصائيات سريعة في الأعلى */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -627,7 +634,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
           </Card>
         </div>
 
-        {/* Search and Filter Bar */}
+        {/* شريط البحث والفلترة */}
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -657,7 +664,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             </select>
           </div>
         </div>
-        {/* التبويبات */}
+        
+        {/* التبويبات مع عدادات الطلبات */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="available" className="relative">
@@ -689,7 +697,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             </TabsTrigger>
           </TabsList>
 
-          {/* الطلبات المتاحة */}
+          {/* تبويب الطلبات المتاحة */}
           <TabsContent value="available" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">الطلبات المتاحة ({categorizedOrders.available.length})</h2>
@@ -754,7 +762,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             )}
           </TabsContent>
 
-          {/* الطلبات المقبولة */}
+          {/* تبويب الطلبات المقبولة */}
           <TabsContent value="accepted" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">طلباتي المقبولة ({categorizedOrders.accepted.length})</h2>
@@ -786,7 +794,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             )}
           </TabsContent>
 
-          {/* الطلبات قيد التوصيل */}
+          {/* تبويب الطلبات قيد التوصيل */}
           <TabsContent value="inProgress" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">قيد التوصيل ({categorizedOrders.inProgress.length})</h2>
@@ -818,7 +826,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
             )}
           </TabsContent>
 
-          {/* الطلبات المكتملة */}
+          {/* تبويب الطلبات المكتملة */}
           <TabsContent value="completed" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">الطلبات المكتملة</h2>

@@ -75,7 +75,7 @@ export function GoogleMapsLocationPicker({
       console.error('خطأ في تحديد الموقع:', error);
       toast({
         title: "خطأ في تحديد الموقع",
-        description: "لا يمكن الوصول لموقعك الحالي. يرجى اختيار موقع من القائمة.",
+        description: "لا يمكن الوصول لموقعك الحالي. يرجى منح الصلاحية أو اختيار موقع من القائمة.",
         variant: "destructive",
       });
     } finally {
@@ -83,32 +83,31 @@ export function GoogleMapsLocationPicker({
     }
   };
 
-  // Open Google Maps for location selection
+  // فتح خرائط جوجل لاختيار الموقع بدقة
   const openGoogleMaps = () => {
     const defaultLat = selectedLocation?.lat || 15.3694; // Sana'a coordinates
     const defaultLng = selectedLocation?.lng || 44.1910;
     
-    // Create Google Maps URL for location picking
-    const mapsUrl = `https://www.google.com/maps/@${defaultLat},${defaultLng},15z`;
+    // إنشاء رابط خرائط جوجل لاختيار الموقع
+    const mapsUrl = `https://www.google.com/maps/place/${defaultLat},${defaultLng}/@${defaultLat},${defaultLng},15z`;
     
-    // Open in new window/tab
+    // فتح في نافذة/تبويب جديد
     window.open(mapsUrl, '_blank');
     
     toast({
       title: "تم فتح خرائط جوجل",
-      description: "اختر موقعك من الخريطة وانسخ العنوان",
+      description: "اختر موقعك من الخريطة وانسخ الإحداثيات أو العنوان",
     });
   };
 
-  // Predefined locations for Yemen
+  // مواقع محددة مسبقاً في اليمن
   const predefinedLocations: LocationData[] = [
     { lat: 15.3694, lng: 44.1910, address: 'صنعاء القديمة، باب اليمن', area: 'باب اليمن', city: 'صنعاء' },
     { lat: 15.3547, lng: 44.2066, address: 'صنعاء الجديدة، شارع الزبيري', area: 'الزبيري', city: 'صنعاء' },
     { lat: 15.3400, lng: 44.1947, address: 'صنعاء، حي السبعين', area: 'السبعين', city: 'صنعاء' },
     { lat: 15.3333, lng: 44.2167, address: 'صنعاء، شارع الستين', area: 'الستين', city: 'صنعاء' },
     { lat: 15.3250, lng: 44.2083, address: 'صنعاء، شارع الخمسين', area: 'الخمسين', city: 'صنعاء' },
-    { lat: 13.5779, lng: 44.2075, address: 'عدن، كريتر', area: 'كريتر', city: 'عدن' },
-    { lat: 13.3356, lng: 44.1830, address: 'تعز، وسط المدينة', area: 'وسط المدينة', city: 'تعز' },
+    { lat: 15.3100, lng: 44.1800, address: 'صنعاء، شارع الأربعين', area: 'الأربعين', city: 'صنعاء' },
   ];
 
   const selectLocation = (location: LocationData) => {
@@ -151,7 +150,7 @@ export function GoogleMapsLocationPicker({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Search Bar */}
+      {/* شريط البحث */}
       <div className="flex gap-2">
         <Input
           value={searchQuery}
@@ -170,7 +169,7 @@ export function GoogleMapsLocationPicker({
         </Button>
       </div>
 
-      {/* Action Buttons */}
+      {/* أزرار الإجراءات */}
       <div className="grid grid-cols-2 gap-3">
         <Button
           onClick={getCurrentLocation}
@@ -189,11 +188,11 @@ export function GoogleMapsLocationPicker({
           data-testid="google-maps-button"
         >
           <MapPin className="h-4 w-4" />
-          فتح الخرائط
+          اختيار من الخرائط
         </Button>
       </div>
 
-      {/* Predefined Locations */}
+      {/* المواقع المحددة مسبقاً */}
       <Card>
         <CardContent className="p-4">
           <h4 className="font-medium mb-3 text-right">المواقع المتاحة:</h4>
@@ -224,7 +223,7 @@ export function GoogleMapsLocationPicker({
         </CardContent>
       </Card>
 
-      {/* Selected Location Display */}
+      {/* عرض الموقع المحدد */}
       {selectedLocation && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
@@ -235,6 +234,9 @@ export function GoogleMapsLocationPicker({
                 <div className="text-sm text-green-600">{selectedLocation.address}</div>
                 <div className="text-xs text-green-500">
                   📍 الإحداثيات: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                </div>
+                <div className="text-xs text-green-500 mt-1">
+                  💡 يمكنك نسخ هذه الإحداثيات لاستخدامها في إعدادات المطعم
                 </div>
               </div>
             </div>

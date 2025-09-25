@@ -19,12 +19,15 @@ export default function AdminLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // إعادة توجيه إذا كان المستخدم مسجل دخول بالفعل
+  // التحقق من تسجيل الدخول المسبق وإعادة التوجيه
   useEffect(() => {
-    if (isAuthenticated && user?.userType === 'admin') {
+    const token = localStorage.getItem('admin_token');
+    const adminData = localStorage.getItem('admin_user');
+    
+    if (token && adminData) {
       setLocation('/admin');
     }
-  }, [isAuthenticated, user, setLocation]);
+  }, [setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +55,15 @@ export default function AdminLoginPage() {
       const result = await response.json();
       
       if (result.success) {
-        // حفظ بيانات المدير في localStorage
+        // حفظ بيانات المدير في localStorage للجلسة
         localStorage.setItem('admin_token', result.token);
         localStorage.setItem('admin_user', JSON.stringify(result.user));
+        
+        toast({
+          title: "مرحباً بك في لوحة التحكم",
+          description: "تم تسجيل الدخول بنجاح",
+        });
+        
         setLocation('/admin');
       } else {
         setError(result.message || 'فشل في تسجيل الدخول');
@@ -76,7 +85,7 @@ export default function AdminLoginPage() {
     if (error) setError(''); // مسح الخطأ عند الكتابة
   };
 
-  // Hardcoded credentials and quick login removed for security
+  // إزالة البيانات المُدمجة للأمان
 
   if (loading) {
     return (
@@ -186,20 +195,18 @@ export default function AdminLoginPage() {
               </div>
             </form>
 
-            {/* Demo Credentials - بيئة التطوير فقط */}
-            {(import.meta as any).env.DEV && (
-              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-sm text-green-800 font-medium mb-2">🔑 بيانات المدير الافتراضية (تطوير):</p>
-                <div className="text-xs text-green-700 space-y-1">
-                  <p>البريد الإلكتروني: admin@alsarie-one.com</p>
-                  <p>كلمة المرور: admin123456</p>
-                </div>
+            {/* معلومات تسجيل الدخول */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800 font-medium mb-2">💡 معلومات تسجيل الدخول:</p>
+              <div className="text-xs text-blue-700 space-y-1">
+                <p>استخدم البيانات المُعدة مسبقاً في قاعدة البيانات</p>
+                <p>أو تواصل مع مدير النظام للحصول على بيانات الدخول</p>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Footer */}
+        {/* التذييل */}
         <div className="text-center mt-8">
           <p className="text-gray-500 text-sm">
             © 2024 السريع ون - جميع الحقوق محفوظة

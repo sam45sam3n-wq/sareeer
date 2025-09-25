@@ -12,10 +12,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast'
 import { apiRequest, queryClient } from '@/lib/queryClient'
 import { Restaurant, Category } from '@shared/schema'
-import { Plus, Search, Edit, Trash2, Store, MapPin, Clock, Star, Phone, Navigation, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Store, MapPin, Clock, Star, Phone, Navigation, AlertTriangle, Filter } from 'lucide-react'
 
 export default function RestaurantManagement() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -36,6 +37,7 @@ export default function RestaurantManagement() {
     image: '',
     latitude: '',
     longitude: '',
+    phone: '', // إضافة رقم هاتف المطعم
     isFeatured: false,
     isNew: false,
     isActive: true
@@ -101,7 +103,7 @@ export default function RestaurantManagement() {
       name: '',
       description: '',
       address: '',
-      phone: '',
+      phone: '', // إضافة رقم هاتف المطعم
       categoryId: '',
       isOpen: true,
       rating: '4.5',
@@ -158,7 +160,7 @@ export default function RestaurantManagement() {
       name: restaurant.name || '',
       description: restaurant.description || '',
       address: restaurant.address || '',
-      phone: restaurant.phone || '',
+      phone: restaurant.phone || '', // إضافة رقم هاتف المطعم
       categoryId: restaurant.categoryId || '',
       isOpen: restaurant.isOpen,
       rating: restaurant.rating || '4.5',
@@ -191,7 +193,7 @@ export default function RestaurantManagement() {
     return category?.name || 'غير محدد'
   }
 
-  // Open Google Maps for location selection
+  // فتح خرائط جوجل لاختيار الموقع
   const openLocationPicker = () => {
     const defaultLat = formData.latitude || '15.3694';
     const defaultLng = formData.longitude || '44.1910';
@@ -204,12 +206,15 @@ export default function RestaurantManagement() {
       description: "اختر موقع المطعم وانسخ الإحداثيات",
     });
   };
+  
+  // فلترة المطاعم حسب البحث والتصنيف
   const filteredRestaurants = restaurants.filter((restaurant) =>
-    restaurant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getCategoryName(restaurant.categoryId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    restaurant.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    restaurant.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    (restaurant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     getCategoryName(restaurant.categoryId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+     restaurant.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     restaurant.phone?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (categoryFilter === 'all' || restaurant.categoryId === categoryFilter)
+  );
 
   if (isLoading) {
     return (
@@ -223,7 +228,7 @@ export default function RestaurantManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
+      {/* قسم الرأس مع البحث والفلترة */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -274,6 +279,18 @@ export default function RestaurantManagement() {
                       data-testid="input-restaurant-phone"
                     />
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">رقم هاتف المطعم</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone || ''}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+967771234567"
+                      data-testid="input-restaurant-phone"
+                    />
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="categoryId">الفئة</Label>
                     <Select value={formData.categoryId || ''} onValueChange={(value) => setFormData({ ...formData, categoryId: value })}>
@@ -449,7 +466,8 @@ export default function RestaurantManagement() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex flex-col lg:flex-row items-center gap-4 mb-6">
+            {/* شريط البحث */}
             <div className="relative flex-1">
               <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -459,6 +477,24 @@ export default function RestaurantManagement() {
                 className="pr-10"
                 data-testid="input-search-restaurants"
               />
+            </div>
+            
+            {/* فلتر التصنيفات */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-48" data-testid="select-category-filter">
+                  <SelectValue placeholder="فلترة حسب التصنيف" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع التصنيفات</SelectItem>
+                  {categories?.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -562,6 +598,18 @@ export default function RestaurantManagement() {
                           <MapPin className="h-4 w-4" />
                         </Button>
                       )}
+                      
+                      {restaurant.phone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`tel:${restaurant.phone}`)}
+                          data-testid={`button-call-restaurant-${restaurant.id}`}
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
                       <Button
                         variant="outline"
                         size="sm"
@@ -597,7 +645,8 @@ export default function RestaurantManagement() {
                                     <li>• جميع الوجبات والأقسام المرتبطة</li>
                                     <li>• تاريخ الطلبات والمبيعات</li>
                                     <li>• التقييمات والمراجعات</li>
-                                    <li>• جميع البيانات المرتبطة</li>
+                                    <li>• جميع البيانات والإحصائيات</li>
+                                    <li>• معلومات التواصل والموقع</li>
                                   </ul>
                                 </div>
                                 <p className="text-sm text-gray-600 font-medium">

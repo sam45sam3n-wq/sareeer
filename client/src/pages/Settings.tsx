@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, Bell, Globe, Moon, Sun, Lock, CreditCard, Smartphone } from 'lucide-react';
+import { ArrowRight, Bell, Globe, Moon, Sun, Lock, CreditCard, Smartphone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
+import { PermissionsManager } from '@/components/PermissionsManager';
 
 interface SettingItem {
   key: string;
@@ -163,6 +164,13 @@ export default function Settings() {
       testId: 'settings-payment-methods',
     },
     {
+      icon: MapPin,
+      label: 'صلاحيات التطبيق',
+      description: 'إدارة صلاحيات الوصول للخدمات',
+      action: () => setShowPermissions(true),
+      testId: 'settings-permissions',
+    },
+    {
       icon: Smartphone,
       label: 'حول التطبيق',
       description: 'معلومات النسخة والتحديثات',
@@ -171,9 +179,11 @@ export default function Settings() {
     },
   ];
 
+  const [showPermissions, setShowPermissions] = useState(false);
+
   return (
     <div>
-      {/* Header */}
+      {/* الرأس */}
       <header className="bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
           <Button
@@ -189,9 +199,34 @@ export default function Settings() {
       </header>
 
       <section className="p-4">
+        {/* نافذة إدارة الصلاحيات */}
+        {showPermissions && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold">إدارة صلاحيات التطبيق</h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowPermissions(false)}
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </div>
+                <PermissionsManager 
+                  onPermissionUpdate={(permission, granted) => {
+                    console.log(`Permission ${permission} ${granted ? 'granted' : 'denied'}`);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="w-full">
           <div className="space-y-6 mt-6">
-            {/* Settings Groups */}
+            {/* مجموعات الإعدادات */}
             {settingsGroups.map((group) => {
           const Icon = group.icon;
           return (
@@ -269,7 +304,7 @@ export default function Settings() {
           );
         })}
 
-            {/* Quick Actions */}
+            {/* الإجراءات السريعة */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">إعدادات إضافية</CardTitle>
@@ -299,7 +334,7 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            {/* Sign Out */}
+            {/* تسجيل الخروج */}
             <Button
               variant="destructive"
               className="w-full"

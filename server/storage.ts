@@ -172,205 +172,36 @@ export class MemStorage implements IStorage {
   }
 
   private initializeData() {
-    // Initialize categories
+    // تهيئة التصنيفات - بيانات أساسية فقط
     const categories = [
       { id: "1", name: "مطاعم", icon: "fas fa-utensils", isActive: true, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() },
       { id: "2", name: "مقاهي", icon: "fas fa-coffee", isActive: true, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() },
-      { id: "3", name: "حلويات", icon: "fas fa-candy-cane", isActive: true, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() },
-      { id: "4", name: "سوبرماركت", icon: "fas fa-shopping-cart", isActive: true, sortOrder: 3, createdAt: new Date(), updatedAt: new Date() },
-      { id: "5", name: "صيدليات", icon: "fas fa-pills", isActive: true, sortOrder: 4, createdAt: new Date(), updatedAt: new Date() },
+      { id: "3", name: "حلويات", icon: "fas fa-candy-cane", isActive: true, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() }
     ];
 
     categories.forEach(cat => this.categories.set(cat.id, cat));
 
-    // Initialize restaurants
- const restaurants = [
-      {
-        id: "1",
-        name: "مطعم الوزيكو للعربكة",
-        description: "مطعم يمني تقليدي متخصص في الأطباق الشعبية",
-        image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
-        rating: "4.8",
-        reviewCount: 4891,
-        deliveryTime: "40-60 دقيقة",
-        isOpen: true,
-        minimumOrder: "25",
-        deliveryFee: "5",
-        categoryId: "1",
-        openingTime: "08:00",
-        closingTime: "23:00",
-        workingDays: "0,1,2,3,4,5,6",
-        isTemporarilyClosed: false,
-        temporaryCloseReason: null,
-        latitude: null,
-        longitude: null,
-        address: "صنعاء، اليمن",
-        isFeatured: true,
-        isNew: false,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "2",
-        name: "حلويات الشام",
-        description: "أفضل الحلويات الشامية والعربية",
-        image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
-        rating: "4.6",
-        reviewCount: 2341,
-        deliveryTime: "30-45 دقيقة",
-        isOpen: true,
-        minimumOrder: "15",
-        deliveryFee: "3",
-        categoryId: "3",
-        openingTime: "08:00",
-        closingTime: "23:00",
-        workingDays: "0,1,2,3,4,5,6",
-        isTemporarilyClosed: false,
-        temporaryCloseReason: null,
-        latitude: null,
-        longitude: null,
-        address: "صنعاء، اليمن",
-        isFeatured: false,
-        isNew: true,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "3",
-        name: "مقهى العروبة",
-        description: "مقهى شعبي بالطابع العربي الأصيل",
-        image: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
-        rating: "4.5",
-        reviewCount: 1876,
-        deliveryTime: "يفتح في 8:00 ص",
-        isOpen: true,
-        minimumOrder: "20",
-        deliveryFee: "4",
-        categoryId: "2",
-        openingTime: "08:00",
-        closingTime: "23:00",
-        workingDays: "0,1,2,3,4,5,6",
-        isTemporarilyClosed: false,
-        temporaryCloseReason: null,
-        latitude: null,
-        longitude: null,
-        address: "صنعاء، اليمن",
-        isFeatured: false,
-        isNew: false,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    ];
+    // إزالة البيانات الافتراضية - سيتم الاعتماد على قاعدة البيانات
+    // المطاعم والوجبات والسائقين سيتم جلبهم من قاعدة البيانات
 
-    restaurants.forEach(restaurant => this.restaurants.set(restaurant.id, restaurant));
-
-    // Initialize menu items
-   const menuItems = [
-      {
-        id: "1",
-        name: "عربكة بالقشطة والعسل",
-        description: "حلوى يمنية تقليدية بالقشطة الطازجة والعسل الطبيعي",
-        price: "55", // تغيير إلى string
-        image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "وجبات رمضان",
-        isAvailable: true,
-        isSpecialOffer: false,
-        originalPrice: null,
-        restaurantId: "1",
-      },
-      {
-        id: "2",
-        name: "معصوب بالقشطة والعسل",
-        description: "طبق يمني شعبي بالموز والقشطة والعسل",
-        price: "55", // تغيير إلى string
-        image: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "وجبات رمضان",
-        isAvailable: true,
-        isSpecialOffer: false,
-        originalPrice: null,
-        restaurantId: "1",
-      },
-      {
-        id: "3",
-        name: "مياه معدنية 750 مل",
-        description: "مياه طبيعية معدنية عالية الجودة",
-        price: "3", // تغيير إلى string
-        image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "المشروبات",
-        isAvailable: true,
-        isSpecialOffer: false,
-        originalPrice: null,
-        restaurantId: "1",
-      },
-      {
-        id: "4",
-        name: "كومبو عربكة خاص",
-        description: "عربكة + مطبق عادي + مشروب غازي",
-        price: "55", // تغيير إلى string
-        originalPrice: "60", // تغيير إلى string
-        image: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "العروض",
-        isAvailable: true,
-        isSpecialOffer: true,
-        restaurantId: "1",
-      }
-    ];
-
-    menuItems.forEach(item => this.menuItems.set(item.id, item));
-
-    // Initialize drivers
-    const drivers = [
-      {
-        id: "1",
-        name: "أحمد محمد",
-        username: "ahmed_driver",
-        email: "ahmed@drivers.com",
-        phone: "+967771234567",
-        password: "123456", // كلمة مرور افتراضية للاختبار
-        userType: "driver",
-        isAvailable: true,
-        isActive: true,
-        currentLocation: "صنعاء",
-        earnings: "2500",
-        createdAt: new Date(),
-      },
-      {
-        id: "2", 
-        name: "علي حسن",
-        username: "ali_driver",
-        email: "ali@drivers.com",
-        phone: "+967779876543",
-        password: "123456", // كلمة مرور افتراضية للاختبار
-        userType: "driver",
-        isAvailable: true,
-        isActive: true,
-        currentLocation: "تعز",
-        earnings: "3200",
-        createdAt: new Date(),
-      }
-    ];
-    drivers.forEach(driver => this.drivers.set(driver.id, driver));
-
-    // Initialize UI Settings
+    // تهيئة إعدادات الواجهة الأساسية فقط
     const uiSettingsData = [
       { key: "show_categories", value: "true", description: "عرض تصنيفات المطاعم" },
       { key: "show_search_bar", value: "true", description: "عرض شريط البحث" },
       { key: "show_special_offers", value: "true", description: "عرض العروض الخاصة" },
+      { key: "show_cart_button", value: "true", description: "عرض زر السلة" },
+      { key: "show_timing_banner", value: "true", description: "عرض شريط أوقات العمل" },
       { key: "show_navigation_home", value: "true", description: "عرض قائمة الرئيسية" },
-      { key: "show_navigation_search", value: "true", description: "عرض قائمة البحث" },
       { key: "show_navigation_orders", value: "true", description: "عرض قائمة الطلبات" },
       { key: "show_navigation_profile", value: "true", description: "عرض قائمة الملف الشخصي" },
-      { key: "enable_dark_mode", value: "false", description: "تفعيل الوضع المظلم" },
-      { key: "enable_notifications", value: "true", description: "تفعيل الإشعارات" },
-      { key: "enable_location_services", value: "true", description: "تفعيل خدمات الموقع" },
-      { key: "enable_voice_search", value: "false", description: "تفعيل البحث الصوتي" },
-      { key: "enable_quick_order", value: "true", description: "تفعيل الطلب السريع" },
+      { key: "show_ratings", value: "true", description: "عرض تقييمات المطاعم" },
+      { key: "show_delivery_time", value: "true", description: "عرض وقت التوصيل" },
+      { key: "show_minimum_order", value: "true", description: "عرض الحد الأدنى للطلب" },
+      { key: "show_restaurant_description", value: "true", description: "عرض وصف المطعم" },
       { key: "opening_time", value: "08:00", description: "وقت فتح المتجر" },
       { key: "closing_time", value: "23:00", description: "وقت إغلاق المتجر" },
-      { key: "store_status", value: "مفتوح", description: "حالة المتجر الحالية" }
+      { key: "store_status", value: "مفتوح", description: "حالة المتجر الحالية" },
+      { key: "delivery_fee_per_km", value: "2", description: "رسوم التوصيل لكل كيلومتر" }
     ];
 
     uiSettingsData.forEach(setting => {
@@ -387,7 +218,7 @@ export class MemStorage implements IStorage {
       this.uiSettings.set(setting.key, uiSetting);
     });
 
-    // Initialize admin users
+    // تهيئة المديرين الأساسيين فقط
     const adminUsers = [
       {
         id: randomUUID(),
@@ -395,25 +226,17 @@ export class MemStorage implements IStorage {
         username: "admin",
         email: "aymenpro124@gmail.com",
         phone: "+967771234567",
-        password: "777146387", // كلمة مرور غير مشفرة للاختبار
+        password: "777146387",
         userType: "admin",
-        isActive: true,
-        createdAt: new Date(),
-      },
-      {
-        id: randomUUID(),
-        name: "أحمد السائق",
-        username: "driver01",
-        email: "driver@example.com",
-        phone: "+967771234568",
-        password: "driver123", // كلمة مرور غير مشفرة للاختبار
-        userType: "driver",
         isActive: true,
         createdAt: new Date(),
       }
     ];
 
     adminUsers.forEach(admin => this.adminUsers.set(admin.id, admin));
+    
+    // ملاحظة: المطاعم والوجبات والسائقين سيتم جلبهم من قاعدة البيانات
+    // عبر API calls بدلاً من البيانات المُدمجة
   }
 
   // Users

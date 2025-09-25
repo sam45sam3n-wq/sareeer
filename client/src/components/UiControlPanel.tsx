@@ -93,6 +93,17 @@ export function UiControlPanel() {
               onCheckedChange={(checked) => handleToggle('show_cart_button', checked)}
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="show_timing_banner" className="flex-1">
+              عرض شريط أوقات العمل
+            </Label>
+            <Switch
+              id="show_timing_banner"
+              checked={isFeatureEnabled('show_timing_banner')}
+              onCheckedChange={(checked) => handleToggle('show_timing_banner', checked)}
+            />
+          </div>
         </CardContent>
       </Card>
 

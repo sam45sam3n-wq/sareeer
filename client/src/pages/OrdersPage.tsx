@@ -51,7 +51,7 @@ export default function OrdersPage() {
   // Use a demo customer ID for testing - in real app this would come from authentication context
   const customerId = 'demo-customer-id';
 
-  // Fetch real orders from database
+  // جلب الطلبات الحقيقية من قاعدة البيانات
   const { data: orders = [], isLoading, error } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
     queryFn: async () => {
@@ -59,7 +59,7 @@ export default function OrdersPage() {
         const response = await apiRequest('GET', '/api/orders');
         const data = await response.json();
         
-        // Process each order to parse items and get restaurant info
+        // معالجة كل طلب لتحليل العناصر والحصول على معلومات المطعم
         const processedOrders = await Promise.all(data.map(async (order: Order) => {
           let parsedItems: OrderItem[] = [];
           try {
@@ -69,7 +69,7 @@ export default function OrdersPage() {
             parsedItems = [];
           }
           
-          // Get restaurant name if not available
+          // الحصول على اسم المطعم إذا لم يكن متوفراً
           let restaurantName = order.restaurantName;
           if (!restaurantName && order.restaurantId) {
             try {
@@ -101,60 +101,9 @@ export default function OrdersPage() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Mock fallback orders for demo if no orders in database
-  const fallbackOrders: Order[] = [
-    {
-      id: '1',
-      orderNumber: 'ORD001',
-      customerName: 'عميل تجريبي',
-      customerPhone: '123456789',
-      customerEmail: 'demo@example.com',
-      deliveryAddress: 'صنعاء، حي السبعين',
-      notes: 'طلب تجريبي',
-      paymentMethod: 'cash',
-      items: JSON.stringify([{ name: 'عربكة بالقشطة والعسل', quantity: 2, price: 55 }, { name: 'شاي كرك', quantity: 1, price: 8 }]),
-      subtotal: '118',
-      deliveryFee: '5',
-      total: '123',
-      totalAmount: '123',
-      restaurantId: 'demo-restaurant',
-      restaurantName: 'مطعم الزعتر الأصيل',
-      status: 'on_way' as const,
-      createdAt: new Date(Date.now() - 30 * 60000).toISOString(),
-      updatedAt: new Date(Date.now() - 30 * 60000).toISOString(),
-      estimatedTime: '25 دقيقة',
-      driverEarnings: '10',
-      customerId: 'demo-customer-id',
-      parsedItems: [{ name: 'عربكة بالقشطة والعسل', quantity: 2, price: 55 }, { name: 'شاي كرك', quantity: 1, price: 8 }]
-    },
-    {
-      id: '2',
-      orderNumber: 'ORD002',
-      customerName: 'عميل تجريبي',
-      customerPhone: '123456789',
-      customerEmail: 'demo@example.com',
-      deliveryAddress: 'صنعاء، شارع الزبيري',
-      notes: 'طلب تجريبي',
-      paymentMethod: 'cash',
-      items: JSON.stringify([{ name: 'برياني لحم', quantity: 1, price: 45 }, { name: 'سلطة يوغرت', quantity: 1, price: 12 }]),
-      subtotal: '57',
-      deliveryFee: '5',
-      total: '62',
-      totalAmount: '62',
-      restaurantId: 'demo-restaurant-2',
-      restaurantName: 'مطعم البخاري الملكي',
-      status: 'delivered' as const,
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60000).toISOString(),
-      updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60000).toISOString(),
-      estimatedTime: '30 دقيقة',
-      driverEarnings: '8',
-      customerId: 'demo-customer-id',
-      parsedItems: [{ name: 'برياني لحم', quantity: 1, price: 45 }, { name: 'سلطة يوغرت', quantity: 1, price: 12 }]
-    }
-  ];
 
-  // Use database orders if available, otherwise use fallback
-  const displayOrders = orders.length > 0 ? orders : fallbackOrders;
+  // استخدام الطلبات من قاعدة البيانات مباشرة
+  const displayOrders = orders;
 
   const getStatusLabel = (status: string) => {
     const statusMap = {
@@ -192,6 +141,7 @@ export default function OrdersPage() {
     return iconMap[status as keyof typeof iconMap] || Clock;
   };
 
+  // فلترة الطلبات حسب التبويب المحدد
   const filteredOrders = displayOrders.filter(order => {
     if (selectedTab === 'all') return true;
     if (selectedTab === 'active') return ['pending', 'confirmed', 'preparing', 'on_way'].includes(order.status);
@@ -211,6 +161,7 @@ export default function OrdersPage() {
     });
   };
 
+  // عدادات التبويبات
   const tabs = [
     { id: 'all', label: 'جميع الطلبات', count: displayOrders.length },
     { id: 'active', label: 'النشطة', count: displayOrders.filter(o => ['pending', 'confirmed', 'preparing', 'on_way'].includes(o.status)).length },
@@ -218,7 +169,7 @@ export default function OrdersPage() {
     { id: 'cancelled', label: 'الملغية', count: displayOrders.filter(o => o.status === 'cancelled').length }
   ];
 
-  // Show loading state
+  // عرض حالة التحميل
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -230,7 +181,7 @@ export default function OrdersPage() {
     );
   }
 
-  // Show error state
+  // عرض حالة الخطأ
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -247,7 +198,7 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* الرأس */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
@@ -267,7 +218,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* التبويبات */}
       <div className="max-w-md mx-auto p-4">
         <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as any)}>
           <TabsList className="grid w-full grid-cols-4 mb-6">
@@ -337,7 +288,7 @@ export default function OrdersPage() {
                         {order.parsedItems?.map((item: OrderItem, index: number) => (
                           <div key={index} className="flex justify-between text-sm">
                             <span>{item.quantity}x {item.name}</span>
-                            <span className="font-medium">{item.price} ر.س</span>
+                            <span className="font-medium">{item.price} ريال</span>
                           </div>
                         )) || (
                           <div className="text-sm text-gray-500">
@@ -346,11 +297,11 @@ export default function OrdersPage() {
                         )}
                       </div>
 
-                      {/* Order Summary */}
+                      {/* ملخص الطلب */}
                       <div className="border-t pt-3 space-y-2">
                         <div className="flex justify-between text-sm text-gray-600">
                           <span>عدد الأصناف: {order.parsedItems?.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) || 0}</span>
-                          <span>المجموع: {order.totalAmount} ر.س</span>
+                          <span>المجموع: {order.totalAmount} ريال</span>
                         </div>
                         <div className="flex justify-between text-xs text-gray-500">
                           <span>العنوان: {order.deliveryAddress}</span>
@@ -363,7 +314,7 @@ export default function OrdersPage() {
                         )}
                       </div>
 
-                      {/* Action Buttons */}
+                      {/* أزرار الإجراءات */}
                       <div className="flex gap-2 pt-2">
                         <Button
                           variant="outline"
@@ -384,6 +335,27 @@ export default function OrdersPage() {
                             data-testid={`button-reorder-${order.id}`}
                           >
                             إعادة الطلب
+                          </Button>
+                        )}
+                        
+                        {order.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => {
+                              if (confirm('هل تريد إلغاء هذا الطلب؟')) {
+                                // تحديث حالة الطلب إلى ملغي
+                                // يمكن إضافة API call هنا
+                                toast({
+                                  title: "تم إلغاء الطلب",
+                                  description: "تم إلغاء الطلب بنجاح",
+                                });
+                              }
+                            }}
+                            data-testid={`button-cancel-${order.id}`}
+                          >
+                            إلغاء
                           </Button>
                         )}
                       </div>

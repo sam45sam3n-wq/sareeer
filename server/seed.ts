@@ -4,20 +4,19 @@ export async function seedDefaultData() {
   try {
     console.log('🌱 Starting database seeding...');
 
-    // Check if data already exists to avoid duplicates
+    // التحقق من وجود البيانات لتجنب التكرار
     const existingCategories = await dbStorage.getCategories();
     if (existingCategories.length > 0) {
       console.log('✓ Database already seeded, skipping...');
       return;
     }
 
-    // Seed categories
+    // إضافة التصنيفات الأساسية
     const categories = [
       { name: "مطاعم", icon: "fas fa-utensils", isActive: true, sortOrder: 0 },
       { name: "مقاهي", icon: "fas fa-coffee", isActive: true, sortOrder: 1 },
       { name: "حلويات", icon: "fas fa-candy-cane", isActive: true, sortOrder: 2 },
-      { name: "سوبرماركت", icon: "fas fa-shopping-cart", isActive: true, sortOrder: 3 },
-      { name: "صيدليات", icon: "fas fa-pills", isActive: true, sortOrder: 4 },
+      { name: "مشروبات", icon: "fas fa-coffee", isActive: true, sortOrder: 3 },
     ];
 
     console.log('📂 Seeding categories...');
@@ -28,12 +27,13 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created category: ${category.name}`);
     }
 
-    // Seed restaurants
+    // إضافة مطاعم تجريبية أساسية
     const restaurants = [
       {
         name: "مطعم الوزيكو للعربكة",
         description: "مطعم يمني تقليدي متخصص في الأطباق الشعبية",
         image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
+        phone: "+967771234567",
         rating: "4.8",
         reviewCount: 4891,
         deliveryTime: "40-60 دقيقة",
@@ -46,6 +46,8 @@ export async function seedDefaultData() {
         workingDays: "0,1,2,3,4,5,6",
         isTemporarilyClosed: false,
         address: "صنعاء، اليمن",
+        latitude: "15.3694",
+        longitude: "44.1910",
         isFeatured: true,
         isNew: false,
         isActive: true,
@@ -54,6 +56,7 @@ export async function seedDefaultData() {
         name: "حلويات الشام",
         description: "أفضل الحلويات الشامية والعربية",
         image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
+        phone: "+967779876543",
         rating: "4.6",
         reviewCount: 2341,
         deliveryTime: "30-45 دقيقة",
@@ -66,28 +69,10 @@ export async function seedDefaultData() {
         workingDays: "0,1,2,3,4,5,6",
         isTemporarilyClosed: false,
         address: "صنعاء، اليمن",
+        latitude: "15.3547",
+        longitude: "44.2066",
         isFeatured: false,
         isNew: true,
-        isActive: true,
-      },
-      {
-        name: "مقهى العروبة",
-        description: "مقهى شعبي بالطابع العربي الأصيل",
-        image: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
-        rating: "4.5",
-        reviewCount: 1876,
-        deliveryTime: "يفتح في 8:00 ص",
-        isOpen: true,
-        minimumOrder: "20",
-        deliveryFee: "4",
-        categoryId: seededCategories[1].id, // مقاهي
-        openingTime: "08:00",
-        closingTime: "23:00",
-        workingDays: "0,1,2,3,4,5,6",
-        isTemporarilyClosed: false,
-        address: "صنعاء، اليمن",
-        isFeatured: false,
-        isNew: false,
         isActive: true,
       }
     ];
@@ -100,7 +85,7 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created restaurant: ${restaurant.name}`);
     }
 
-    // Seed menu items
+    // إضافة عناصر قائمة أساسية
     const menuItems = [
       {
         name: "عربكة بالقشطة والعسل",
@@ -113,11 +98,11 @@ export async function seedDefaultData() {
         restaurantId: seededRestaurants[0].id,
       },
       {
-        name: "معصوب بالقشطة والعسل",
-        description: "طبق يمني شعبي بالموز والقشطة والعسل",
-        price: "55",
-        image: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "وجبات رمضان",
+        name: "شاي كرك",
+        description: "شاي كرك بالحليب والهيل",
+        price: "8",
+        image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
+        category: "المشروبات",
         isAvailable: true,
         isSpecialOffer: false,
         restaurantId: seededRestaurants[0].id,
@@ -132,16 +117,6 @@ export async function seedDefaultData() {
         isSpecialOffer: true,
         originalPrice: "50",
         restaurantId: seededRestaurants[1].id,
-      },
-      {
-        name: "بقلاوة بالفستق",
-        description: "بقلاوة محشية بالفستق الحلبي",
-        price: "35",
-        image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200",
-        category: "حلويات شرقية",
-        isAvailable: true,
-        isSpecialOffer: false,
-        restaurantId: seededRestaurants[1].id,
       }
     ];
 
@@ -151,9 +126,9 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created menu item: ${menuItem.name}`);
     }
 
-    // Seed UI Settings
+    // إضافة إعدادات الواجهة الأساسية
     const uiSettings = [
-      // Navigation Settings
+      // إعدادات التنقل
       {
         key: "show_categories",
         value: "true",
@@ -173,6 +148,18 @@ export async function seedDefaultData() {
         description: "عرض العروض الخاصة والتخفيضات"
       },
       {
+        key: "show_cart_button",
+        value: "true",
+        category: "navigation",
+        description: "عرض زر السلة"
+      },
+      {
+        key: "show_timing_banner",
+        value: "true",
+        category: "navigation",
+        description: "عرض شريط أوقات العمل"
+      },
+      {
         key: "show_orders_page",
         value: "true",
         category: "navigation",
@@ -186,18 +173,44 @@ export async function seedDefaultData() {
       },
       {
         key: "show_admin_panel",
-        value: "true",
+        value: "false",
         category: "navigation",
         description: "عرض لوحة التحكم الإدارية"
       },
       {
         key: "show_delivery_app",
-        value: "true",
+        value: "false",
         category: "navigation",
         description: "عرض تطبيق التوصيل"
       },
       
-      // App Settings
+      // إعدادات عرض المطاعم
+      {
+        key: "show_ratings",
+        value: "true",
+        category: "display",
+        description: "عرض تقييمات المطاعم"
+      },
+      {
+        key: "show_delivery_time",
+        value: "true",
+        category: "display",
+        description: "عرض وقت التوصيل"
+      },
+      {
+        key: "show_minimum_order",
+        value: "true",
+        category: "display",
+        description: "عرض الحد الأدنى للطلب"
+      },
+      {
+        key: "show_restaurant_description",
+        value: "true",
+        category: "display",
+        description: "عرض وصف المطعم"
+      },
+      
+      // إعدادات التطبيق العامة
       {
         key: "app_name",
         value: "السريع ون للتوصيل",
@@ -217,13 +230,19 @@ export async function seedDefaultData() {
         description: "رسوم التوصيل الافتراضية (ريال)"
       },
       {
+        key: "delivery_fee_per_km",
+        value: "2",
+        category: "general",
+        description: "رسوم التوصيل لكل كيلومتر (ريال)"
+      },
+      {
         key: "minimum_order_default",
         value: "25",
         category: "general",
         description: "الحد الأدنى لقيمة الطلب (ريال)"
       },
       
-      // Store Settings
+      // إعدادات المتجر
       {
         key: "opening_time",
         value: "08:00",
@@ -250,22 +269,13 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created UI setting: ${setting.key}`);
     }
 
-    // Create default admin user
+    // إنشاء مدير النظام الافتراضي
     const adminUsers = [
       {
         name: "مدير النظام الرئيسي",
         email: "admin@alsarie-one.com",
         username: "admin",
         phone: "+967777777777",
-        password: "777146387", // كلمة مرور المدير الافتراضية
-        userType: "admin",
-        isActive: true,
-      },
-      {
-        name: "مدير فرعي",
-        email: "manager@alsarie-one.com", 
-        username: "manager",
-        phone: "+967777777778",
         password: "777146387",
         userType: "admin",
         isActive: true,
@@ -278,7 +288,7 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created admin user: ${createdAdmin.name}`);
     }
 
-    // Create default drivers
+    // إنشاء سائقين تجريبيين
     const defaultDrivers = [
       {
         name: "أحمد محمد السائق",
@@ -289,15 +299,6 @@ export async function seedDefaultData() {
         currentLocation: "صنعاء، شارع الزبيري",
         earnings: "2500",
       },
-      {
-        name: "علي حسن السائق",
-        phone: "+967779876543",
-        password: "driver123",
-        isAvailable: true,
-        isActive: true,
-        currentLocation: "صنعاء، شارع السبعين",
-        earnings: "3200",
-      }
     ];
 
     console.log('🚗 Seeding drivers...');
@@ -306,9 +307,26 @@ export async function seedDefaultData() {
       console.log(`  ✓ Created driver: ${createdDriver.name}`);
     }
 
+    // إضافة عرض خاص تجريبي
+    const specialOffers = [
+      {
+        title: "خصم 20% على الطلبات فوق 100 ريال",
+        description: "احصل على خصم 20% عند طلب بقيمة 100 ريال أو أكثر",
+        image: "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400",
+        discountPercent: 20,
+        minimumOrder: "100",
+        isActive: true,
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 يوم من الآن
+      }
+    ];
     console.log('✅ Database seeding completed successfully!');
     console.log(`📊 Seeded: ${categories.length} categories, ${restaurants.length} restaurants, ${menuItems.length} menu items, ${uiSettings.length} UI settings, ${adminUsers.length} admin users, ${defaultDrivers.length} drivers`);
 
+    console.log('🎁 Seeding special offers...');
+    for (const offerData of specialOffers) {
+      const offer = await dbStorage.createSpecialOffer(offerData);
+    console.log(`📊 Seeded: ${categories.length} categories, ${restaurants.length} restaurants, ${menuItems.length} menu items, ${uiSettings.length} UI settings, ${adminUsers.length} admin users, ${defaultDrivers.length} drivers, ${specialOffers.length} special offers`);
+    }
   } catch (error) {
     console.error('❌ Database seeding failed:', error);
     throw error;

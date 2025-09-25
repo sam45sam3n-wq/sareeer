@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
+import { useUiSettings } from '@/context/UiSettingsContext';
 import { 
   UtensilsCrossed, 
   Star, 
@@ -16,10 +17,11 @@ import CategoryTabs from '@/components/CategoryTabs';
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { isFeatureEnabled } = useUiSettings();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0);
 
-  // Fetch data from database
+  // جلب البيانات من قاعدة البيانات
   const { data: restaurants, isLoading: restaurantsLoading } = useQuery<Restaurant[]>({
     queryKey: ['/api/restaurants'],
   });
@@ -32,7 +34,7 @@ export default function Home() {
     queryKey: ['/api/special-offers'],
   });
 
-  // Filter restaurants based on selected category
+  // فلترة المطاعم حسب التصنيف المحدد
   const filteredRestaurants = restaurants?.filter(restaurant => {
     if (!selectedCategory) return true;
     return restaurant.categoryId === selectedCategory;
@@ -63,19 +65,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Timing Banner */}
-      <TimingBanner />
+      {/* شريط التوقيت - يظهر حسب إعدادات المدير */}
+      {isFeatureEnabled('show_timing_banner') && <TimingBanner />}
 
-      {/* Main Content */}
+      {/* المحتوى الرئيسي */}
       <main className="p-4">
-        {/* Category Tabs */}
-        <CategoryTabs 
-          selectedCategory={selectedCategory} 
-          onCategoryChange={handleCategoryChange}
-        />
+        {/* تبويبات التصنيفات - تظهر حسب إعدادات المدير */}
+        {isFeatureEnabled('show_categories') && (
+          <CategoryTabs 
+            selectedCategory={selectedCategory} 
+            onCategoryChange={handleCategoryChange}
+          />
+        )}
 
-        {/* Special Offers Section */}
-        {activeOffers.length > 0 && (
+        {/* قسم العروض الخاصة - يظهر حسب إعدادات المدير */}
+        {isFeatureEnabled('show_special_offers') && activeOffers.length > 0 && (
           <section className="mb-6">
             <h2 className="text-lg font-bold mb-4 text-right">العروض الخاصة</h2>
             <div className="relative">
@@ -89,7 +93,7 @@ export default function Home() {
                       <div 
                         className="relative h-40 overflow-hidden rounded-2xl cursor-pointer hover:shadow-lg transition-shadow"
                         onClick={() => {
-                          // Navigate to first available restaurant when clicking on offer
+                          // الانتقال لأول مطعم متاح عند النقر على العرض
                           if (filteredRestaurants && filteredRestaurants.length > 0) {
                             handleRestaurantClick(filteredRestaurants[0].id);
                           } else if (restaurants && restaurants.length > 0) {
@@ -182,11 +186,11 @@ export default function Home() {
           </section>
         )}
 
-        {/* Restaurants Section */}
+        {/* قسم المطاعم */}
         <section>
           <h2 className="text-lg font-bold mb-4 text-right">المطاعم</h2>
           
-          {/* Loading state */}
+          {/* حالة التحميل */}
           {restaurantsLoading && (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
@@ -204,7 +208,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Enhanced Restaurant Cards */}
+          {/* بطاقات المطاعم المحسنة */}
           <div className="space-y-4">
             {filteredRestaurants.map((restaurant) => (
               <div 
@@ -214,7 +218,7 @@ export default function Home() {
                 data-testid={`card-restaurant-${restaurant.id}`}
               >
                 <div className="relative">
-                  {/* Restaurant Image with Gradient Overlay */}
+                  {/* صورة المطعم مع تدرج */}
                   <div className="relative h-32 overflow-hidden">
                     {restaurant.image ? (
                       <img 
@@ -229,7 +233,7 @@ export default function Home() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                     
-                    {/* Status Badge on Image */}
+                    {/* شارة الحالة على الصورة */}
                     <div className="absolute top-3 left-3">
                       <Badge 
                         className={`px-3 py-1 text-xs font-bold rounded-full backdrop-blur-sm border-0 shadow-lg ${
@@ -243,7 +247,7 @@ export default function Home() {
                       </Badge>
                     </div>
 
-                    {/* Featured Badge */}
+                    {/* شارة المطعم المميز */}
                     {restaurant.isFeatured && (
                       <div className="absolute top-3 right-3">
                         <Badge className="bg-yellow-500/90 text-black text-xs px-3 py-1 rounded-full backdrop-blur-sm border-0 shadow-lg font-bold">
@@ -252,7 +256,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* Heart Icon */}
+                    {/* أيقونة القلب للمفضلة */}
                     <div className="absolute top-3 right-3 mr-16">
                       <Heart 
                         className="h-6 w-6 text-white/80 cursor-pointer hover:text-red-400 transition-colors drop-shadow-lg" 
@@ -261,7 +265,7 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {/* Restaurant Info Card */}
+                  {/* بطاقة معلومات المطعم */}
                   <div className="p-4 bg-white">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -278,30 +282,36 @@ export default function Home() {
                           {restaurant.description}
                         </p>
                         
-                        {/* Rating and Stats Row */}
-                        <div className="flex items-center gap-4 mb-3">
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                            <span 
-                              className="text-sm font-semibold text-gray-800"
-                              data-testid={`text-rating-${restaurant.id}`}
-                            >
-                              {restaurant.rating}
-                            </span>
-                            <span className="text-xs text-gray-500">({restaurant.reviewCount})</span>
+                        {/* صف التقييم والإحصائيات - يظهر حسب إعدادات المدير */}
+                        {(isFeatureEnabled('show_ratings') || isFeatureEnabled('show_delivery_time')) && (
+                          <div className="flex items-center gap-4 mb-3">
+                            {isFeatureEnabled('show_ratings') && (
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                                <span 
+                                  className="text-sm font-semibold text-gray-800"
+                                  data-testid={`text-rating-${restaurant.id}`}
+                                >
+                                  {restaurant.rating}
+                                </span>
+                                <span className="text-xs text-gray-500">({restaurant.reviewCount})</span>
+                              </div>
+                            )}
+                            
+                            {isFeatureEnabled('show_delivery_time') && (
+                              <div className="flex items-center gap-1">
+                                <span 
+                                  className="text-sm text-gray-600"
+                                  data-testid={`text-delivery-time-${restaurant.id}`}
+                                >
+                                  🕒 {restaurant.deliveryTime}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          
-                          <div className="flex items-center gap-1">
-                            <span 
-                              className="text-sm text-gray-600"
-                              data-testid={`text-delivery-time-${restaurant.id}`}
-                            >
-                              🕒 {restaurant.deliveryTime}
-                            </span>
-                          </div>
-                        </div>
+                        )}
                         
-                        {/* Delivery Info */}
+                        {/* معلومات التوصيل - تظهر حسب إعدادات المدير */}
                         <div className="flex items-center gap-2">
                           {restaurant.deliveryFee && parseFloat(restaurant.deliveryFee) > 0 ? (
                             <span 
@@ -319,7 +329,7 @@ export default function Home() {
                             </span>
                           )}
                           
-                          {restaurant.minimumOrder && (
+                          {isFeatureEnabled('show_minimum_order') && restaurant.minimumOrder && (
                             <span className="text-sm text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
                               📦 حد أدنى {restaurant.minimumOrder} ريال
                             </span>
@@ -333,7 +343,7 @@ export default function Home() {
             ))}
           </div>
           
-          {/* Empty state */}
+          {/* حالة فارغة */}
           {!restaurantsLoading && (!filteredRestaurants || filteredRestaurants.length === 0) && (
             <div className="text-center py-8" data-testid="empty-state-restaurants">
               <UtensilsCrossed className="h-16 w-16 mx-auto text-gray-300 mb-4" />
