@@ -1128,6 +1128,6 @@ async updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promi
 import { dbStorage } from './db';
 
 // Switch between MemStorage and DatabaseStorage
-const USE_MEMORY_STORAGE = false; // Set to false to use database - switched for data persistence
+const USE_MEMORY_STORAGE = true; // Set to true to use memory storage - switched for Replit environment
 
 export const storage = USE_MEMORY_STORAGE ? new MemStorage() : dbStorage;
