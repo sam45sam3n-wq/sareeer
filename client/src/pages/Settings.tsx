@@ -6,8 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
+import { UiControlPanel } from '@/components/UiControlPanel';
+import { PermissionsManager } from '@/components/PermissionsManager';
 
 interface SettingItem {
   key: string;
@@ -198,14 +201,23 @@ export default function Settings() {
       </header>
 
       <section className="p-4">
-        <div className="w-full">
-          {/* إعدادات عامة */}
-          <div className="flex items-center gap-2 mb-4">
-            <SettingsIcon className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">الإعدادات العامة</h3>
-          </div>
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="general" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              إعدادات عامة
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              الصلاحيات
+            </TabsTrigger>
+            <TabsTrigger value="ui-control" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              تحكم الواجهة
+            </TabsTrigger>
+          </TabsList>
           
-          <div className="space-y-6 mt-6">
+          <TabsContent value="general" className="space-y-6 mt-6">
             {/* Settings Groups */}
             {settingsGroups.map((group) => {
           const Icon = group.icon;
@@ -322,8 +334,23 @@ export default function Settings() {
             >
               تسجيل الخروج
             </Button>
-          </div>
-        </div>
+          </TabsContent>
+          
+          <TabsContent value="permissions" className="mt-6">
+            <PermissionsManager onPermissionUpdate={(permission, granted) => {
+              console.log(`Permission ${permission} ${granted ? 'granted' : 'denied'}`);
+              toast({
+                title: granted ? 'تم منح الإذن' : 'تم رفض الإذن',
+                description: `إذن ${permission} ${granted ? 'مُمنوح' : 'مرفوض'}`,
+                variant: granted ? 'default' : 'destructive',
+              });
+            }} />
+          </TabsContent>
+          
+          <TabsContent value="ui-control" className="mt-6">
+            <UiControlPanel />
+          </TabsContent>
+        </Tabs>
       </section>
     </div>
   );

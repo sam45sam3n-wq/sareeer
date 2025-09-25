@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, Trash2, MapPin, Calendar, Clock, DollarSign, Plus, Minus, ShoppingCart, AlertCircle } from 'lucide-react';
+import { ArrowRight, Trash2, MapPin, Calendar, Clock, DollarSign, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { LocationPicker, LocationData } from '@/components/LocationPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import type { InsertOrder } from '@shared/schema';
 export default function Cart() {
   const [, setLocation] = useLocation();
   const { state, removeItem, updateQuantity, clearCart } = useCart();
-  const { items, subtotal } = state;
+  const { items, subtotal, total } = state;
   const { toast } = useToast();
 
   const [orderForm, setOrderForm] = useState({
@@ -33,52 +33,6 @@ export default function Cart() {
     locationData: null as LocationData | null,
   });
 
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number>(5); // Default fee
-  const [deliveryFeePerKm] = useState<number>(2); // 2 رياي لكل كيلو متر (from admin settings)
-
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Enhanced validation function
-  const validateForm = (): Record<string, string> => {
-    const errors: Record<string, string> = {};
-
-    // Name validation - required, minimum 2 characters, only letters and spaces
-    if (!orderForm.customerName.trim()) {
-      errors.customerName = 'الاسم مطلوب';
-    } else if (orderForm.customerName.trim().length < 2) {
-      errors.customerName = 'الاسم يجب أن يكون على الأقل حرفين';
-    } else if (!/^[أ-يa-zA-Z\s]+$/.test(orderForm.customerName)) {
-      errors.customerName = 'الاسم يجب أن يحتوي على أحرف فقط';
-    }
-
-    // Phone validation - required, Yemen phone format
-    if (!orderForm.customerPhone.trim()) {
-      errors.customerPhone = 'رقم الهاتف مطلوب';
-    } else if (!/^(7[0-9]{8}|00967[7][0-9]{8}|\+967[7][0-9]{8})$/.test(orderForm.customerPhone.replace(/\s/g, ''))) {
-      errors.customerPhone = 'رقم الهاتف غير صحيح. مثال: 773123456 أو 00967773123456';
-    }
-
-    // Address validation - required, minimum 10 characters
-    if (!orderForm.deliveryAddress.trim()) {
-      errors.deliveryAddress = 'عنوان التوصيل مطلوب';
-    } else if (orderForm.deliveryAddress.trim().length < 10) {
-      errors.deliveryAddress = 'يرجى كتابة عنوان مفصل أكثر (على الأقل 10 أحرف)';
-    }
-
-    return errors;
-  };
-
   // Handle location selection from LocationPicker
   const handleLocationSelect = (location: LocationData) => {
     setOrderForm(prev => ({
@@ -86,43 +40,7 @@ export default function Cart() {
       deliveryAddress: location.address,
       locationData: location,
     }));
-    
-    // Calculate delivery fee based on distance from restaurant
-    if (location && items.length > 0) {
-      // Default restaurant location (this should come from restaurant data)
-      const restaurantLat = 15.3694; // Sana'a center coordinates
-      const restaurantLng = 44.1910;
-      
-      const distance = calculateDistance(
-        restaurantLat, 
-        restaurantLng, 
-        location.lat, 
-        location.lng
-      );
-      
-      // Calculate fee: minimum 3 rials, then 2 rials per km after first km
-      const calculatedFee = Math.max(3, Math.round(distance * deliveryFeePerKm));
-      setCalculatedDeliveryFee(calculatedFee);
-    }
   };
-
-  // Calculate delivery fee when location changes
-  useEffect(() => {
-    if (orderForm.locationData && items.length > 0) {
-      const restaurantLat = 15.3694; // This should come from restaurant data
-      const restaurantLng = 44.1910;
-      
-      const distance = calculateDistance(
-        restaurantLat,
-        restaurantLng,
-        orderForm.locationData.lat,
-        orderForm.locationData.lng
-      );
-      
-      const calculatedFee = Math.max(3, Math.round(distance * deliveryFeePerKm));
-      setCalculatedDeliveryFee(calculatedFee);
-    }
-  }, [orderForm.locationData, items.length, deliveryFeePerKm]);
 
   const placeOrderMutation = useMutation({
     mutationFn: async (orderData: InsertOrder) => {
@@ -147,14 +65,10 @@ export default function Cart() {
   });
 
   const handlePlaceOrder = () => {
-    // Validate form
-    const errors = validateForm();
-    setValidationErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
+    if (!orderForm.customerName || !orderForm.customerPhone || !orderForm.deliveryAddress) {
       toast({
-        title: "معلومات غير صحيحة",
-        description: "يرجى تصحيح الأخطاء المذكورة في النموذج",
+        title: "معلومات ناقصة",
+        description: "يرجى ملء جميع الحقول المطلوبة",
         variant: "destructive",
       });
       return;
@@ -169,16 +83,13 @@ export default function Cart() {
       return;
     }
 
-    // Calculate final total with calculated delivery fee
-    const finalTotal = subtotal + calculatedDeliveryFee;
-
     const orderData: InsertOrder = {
       ...orderForm,
       items: JSON.stringify(items),
       subtotal: subtotal.toString(),
-      deliveryFee: calculatedDeliveryFee.toString(),
-      total: finalTotal.toString(),
-      totalAmount: finalTotal.toString(),
+      deliveryFee: '5',
+      total: total.toString(),
+      totalAmount: total.toString(),
       restaurantId: items[0]?.restaurantId || '',
       status: 'pending',
       orderNumber: `ORD${Date.now()}`,
@@ -287,48 +198,18 @@ export default function Cart() {
           <CardContent className="p-4">
             <h3 className="font-semibold text-gray-800 mb-4">معلومات العميل</h3>
             <div className="space-y-4">
-              <div>
-                <Input
-                  placeholder="الاسم *"
-                  value={orderForm.customerName}
-                  onChange={(e) => {
-                    setOrderForm(prev => ({ ...prev, customerName: e.target.value }));
-                    if (validationErrors.customerName) {
-                      setValidationErrors(prev => ({ ...prev, customerName: '' }));
-                    }
-                  }}
-                  data-testid="input-customer-name"
-                  className={validationErrors.customerName ? 'border-red-500 focus:border-red-500' : ''}
-                />
-                {validationErrors.customerName && (
-                  <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{validationErrors.customerName}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <Input
-                  placeholder="رقم الهاتف * (مثال: 773123456)"
-                  value={orderForm.customerPhone}
-                  onChange={(e) => {
-                    setOrderForm(prev => ({ ...prev, customerPhone: e.target.value }));
-                    if (validationErrors.customerPhone) {
-                      setValidationErrors(prev => ({ ...prev, customerPhone: '' }));
-                    }
-                  }}
-                  data-testid="input-customer-phone"
-                  className={validationErrors.customerPhone ? 'border-red-500 focus:border-red-500' : ''}
-                />
-                {validationErrors.customerPhone && (
-                  <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{validationErrors.customerPhone}</span>
-                  </div>
-                )}
-              </div>
-              
+              <Input
+                placeholder="الاسم *"
+                value={orderForm.customerName}
+                onChange={(e) => setOrderForm(prev => ({ ...prev, customerName: e.target.value }))}
+                data-testid="input-customer-name"
+              />
+              <Input
+                placeholder="رقم الهاتف *"
+                value={orderForm.customerPhone}
+                onChange={(e) => setOrderForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                data-testid="input-customer-phone"
+              />
               <Input
                 placeholder="البريد الإلكتروني"
                 value={orderForm.customerEmail}
@@ -359,27 +240,13 @@ export default function Cart() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">أو أدخل العنوان يدوياً:</label>
               <Textarea
-                placeholder="أدخل عنوان التوصيل بالتفصيل * (مثال: صنعاء، شارع الزبيري، بجانب مسجد النور، الطابق الثاني)"
+                placeholder="أدخل عنوان التوصيل بالتفصيل *"
                 value={orderForm.deliveryAddress}
-                onChange={(e) => {
-                  setOrderForm(prev => ({ ...prev, deliveryAddress: e.target.value }));
-                  if (validationErrors.deliveryAddress) {
-                    setValidationErrors(prev => ({ ...prev, deliveryAddress: '' }));
-                  }
-                }}
+                onChange={(e) => setOrderForm(prev => ({ ...prev, deliveryAddress: e.target.value }))}
                 rows={3}
                 data-testid="input-delivery-address"
-                className={validationErrors.deliveryAddress ? 
-                  'border-red-500 focus:border-red-500 focus:ring-red-500' : 
-                  'border-gray-300 focus:border-red-500 focus:ring-red-500'
-                }
+                className="border-gray-300 focus:border-red-500 focus:ring-red-500"
               />
-              {validationErrors.deliveryAddress && (
-                <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{validationErrors.deliveryAddress}</span>
-                </div>
-              )}
             </div>
 
             {/* Location Coordinates Display */}
@@ -498,23 +365,16 @@ export default function Cart() {
               </div>
               
               <div className="flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="text-gray-600">التوصيل</span>
-                  {orderForm.locationData && (
-                    <span className="text-xs text-green-600">
-                      محسوب بناء على المسافة ({Math.round(calculateDistance(15.3694, 44.1910, orderForm.locationData.lat, orderForm.locationData.lng) * 10) / 10} كم)
-                    </span>
-                  )}
-                </div>
+                <span className="text-gray-600">التوصيل</span>
                 <span className="text-gray-900" data-testid="text-delivery-fee">
-                  {subtotal > 0 ? `${calculatedDeliveryFee}ريال` : '0ريال'}
+                  {subtotal > 0 ? '5ريال' : '0ريال'}
                 </span>
               </div>
               
               <div className="flex justify-between items-center pt-2 border-t">
                 <span className="text-gray-800 font-semibold">الإجمالي</span>
                 <span className="text-xl font-bold text-red-500" data-testid="text-total">
-                  {subtotal > 0 ? `${subtotal + calculatedDeliveryFee}ريال` : '0ريال'}
+                  {total}ريال
                 </span>
               </div>
               
@@ -539,7 +399,7 @@ export default function Cart() {
                 disabled={placeOrderMutation.isPending}
                 data-testid="button-place-order"
               >
-                {placeOrderMutation.isPending ? 'جاري تأكيد الطلب...' : `تأكيد الطلب - ${subtotal + calculatedDeliveryFee}ريال`}
+                {placeOrderMutation.isPending ? 'جاري تأكيد الطلب...' : `تأكيد الطلب - ${total}ريال`}
               </Button>
             </CardContent>
           </Card>

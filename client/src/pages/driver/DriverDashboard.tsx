@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Truck, 
@@ -15,7 +15,9 @@ import {
   Navigation,
   Phone,
   CheckCircle,
+  XCircle,
   Package,
+  Settings,
   TrendingUp,
   Activity,
   Map,
@@ -38,40 +40,34 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Get driver ID from localStorage
-  const getDriverId = () => {
-    const driverUser = localStorage.getItem('driver_user');
-    if (driverUser) {
-      const userData = JSON.parse(driverUser);
-      return userData.id || 'driver1';
-    }
-    return 'driver1';
-  };
+  const driverId = 'driver1'; // Default for testing
 
-  const driverId = getDriverId();
+  // Fetch driver info
+  const { data: driver } = useQuery<Driver>({
+    queryKey: [`/api/drivers/${driverId}`],
+  });
 
-  // Fetch dashboard data from the correct API endpoint
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
-    queryKey: [`/api/driver/dashboard`, driverId],
-    queryFn: () => fetch(`/api/driver/dashboard?driverId=${driverId}`).then(res => res.json()),
+  // Fetch available orders
+  const { data: availableOrders, isLoading: ordersLoading } = useQuery<Order[]>({
+    queryKey: [`/api/drivers/${driverId}/available-orders`],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Extract data from dashboard response
-  const todayStats = dashboardData?.stats;
-  const availableOrders = dashboardData?.availableOrders || [];
-  const myOrders = dashboardData?.currentOrders || [];
-  const weekStats = dashboardData?.weekStats; // Add week stats if available
-  const ordersLoading = dashboardLoading;
-  
-  // Create driver object from localStorage data
-  const driver = React.useMemo(() => {
-    const driverUser = localStorage.getItem('driver_user');
-    if (driverUser) {
-      return JSON.parse(driverUser);
-    }
-    return { name: 'سائق', phone: '0501234567', isAvailable: true };
-  }, []);
+  // Fetch driver orders
+  const { data: myOrders } = useQuery<Order[]>({
+    queryKey: [`/api/drivers/${driverId}/orders`],
+  });
+
+  // Fetch driver stats
+  const { data: todayStats } = useQuery({
+    queryKey: [`/api/drivers/${driverId}/stats`, 'today'],
+    queryFn: () => fetch(`/api/drivers/${driverId}/stats?period=today`).then(res => res.json()),
+  });
+
+  const { data: weekStats } = useQuery({
+    queryKey: [`/api/drivers/${driverId}/stats`, 'week'],
+    queryFn: () => fetch(`/api/drivers/${driverId}/stats?period=week`).then(res => res.json()),
+  });
 
   // Status update mutation
   const updateStatusMutation = useMutation({
@@ -100,16 +96,17 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   // Accept order mutation
   const acceptOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await fetch(`/api/driver/orders/${orderId}/accept`, {
+      const response = await fetch(`/api/drivers/${driverId}/accept-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId }),
+        body: JSON.stringify({ orderId }),
       });
       if (!response.ok) throw new Error('Failed to accept order');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/driver/dashboard`, driverId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/drivers/${driverId}/available-orders`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/drivers/${driverId}/orders`] });
       setDriverStatus('busy');
       toast({ title: 'تم قبول الطلب بنجاح' });
     },
@@ -118,27 +115,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
     },
   });
 
-  // Order status update mutation  
-  const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      const response = await fetch(`/api/driver/orders/${orderId}/status`, {
-        method: 'PUT',
+  // Complete order mutation
+  const completeOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await fetch(`/api/drivers/${driverId}/complete-order`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          driverId,
-          status,
-          location: currentLocation
-        }),
+        body: JSON.stringify({ orderId }),
       });
-      if (!response.ok) throw new Error('Failed to update order status');
+      if (!response.ok) throw new Error('Failed to complete order');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/driver/dashboard`, driverId] });
-      toast({ title: 'تم تحديث حالة الطلب بنجاح' });
+      queryClient.invalidateQueries({ queryKey: [`/api/drivers/${driverId}/orders`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/drivers/${driverId}/stats`] });
+      setDriverStatus('available');
+      toast({ title: 'تم تسليم الطلب بنجاح' });
     },
     onError: () => {
-      toast({ title: 'فشل في تحديث حالة الطلب', variant: 'destructive' });
+      toast({ title: 'فشل في تسليم الطلب', variant: 'destructive' });
     },
   });
 
@@ -361,8 +356,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
                           اتصال
                         </Button>
                         <Button
-                          onClick={() => updateOrderStatusMutation.mutate({ orderId: currentOrder.id, status: 'delivered' })}
-                          disabled={updateOrderStatusMutation.isPending}
+                          onClick={() => completeOrderMutation.mutate(currentOrder.id)}
+                          disabled={completeOrderMutation.isPending}
                           className="gap-2 bg-green-600 hover:bg-green-700"
                         >
                           <CheckCircle className="h-4 w-4" />

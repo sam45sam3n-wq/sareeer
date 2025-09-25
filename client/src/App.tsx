@@ -5,13 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "./contexts/CartContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LocationProvider, useLocation } from "./context/LocationContext";
 import { UiSettingsProvider, useUiSettings } from "./context/UiSettingsContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { LocationPermissionModal } from "./components/LocationPermissionModal";
 import Layout from "./components/Layout";
-// import { LoginPage } from "./pages/LoginPage"; // Removed - not used
+import { LoginPage } from "./pages/LoginPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import DriverLoginPage from "./pages/driver/DriverLoginPage";
 import AdminApp from "./pages/AdminApp";
@@ -54,21 +54,7 @@ function MainApp() {
 
   // Handle driver routes (direct access without authentication)  
   if (window.location.pathname.startsWith('/driver')) {
-    // التحقق من تسجيل الدخول للسائق
-    const driverToken = localStorage.getItem('driver_token');
-    const driverUser = localStorage.getItem('driver_user');
-    
-    if (!driverToken || !driverUser) {
-      // إعادة توجيه إلى صفحة تسجيل الدخول
-      window.location.href = '/driver-login';
-      return null;
-    }
-    
-    return <DriverDashboard onLogout={() => {
-      localStorage.removeItem('driver_token');
-      localStorage.removeItem('driver_user');
-      window.location.href = '/';
-    }} />;
+    return <DriverDashboard onLogout={() => window.location.href = '/'} />;
   }
 
   // Remove admin/driver routes from customer app routing
