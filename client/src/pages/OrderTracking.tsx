@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
-import { ArrowRight, MapPin, Clock, Phone, Truck, User } from 'lucide-react';
+import { ArrowRight, MapPin, Clock, Phone, Truck, User, Navigation, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import { DriverCommunication } from '@/components/DriverCommunication';
 
 interface OrderStatus {
   id: string;
@@ -15,6 +19,7 @@ interface OrderStatus {
 
 interface OrderDetails {
   id: string;
+  orderNumber: string;
   customerName: string;
   customerPhone: string;
   deliveryAddress: string;
@@ -24,37 +29,56 @@ interface OrderDetails {
   estimatedTime: string;
   driverName?: string;
   driverPhone?: string;
+  driverId?: string;
   createdAt: Date;
+  notes?: string;
+  paymentMethod: string;
 }
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
-  // Mock order data - in real app this would come from API
-  const [order] = useState<OrderDetails>({
-    id: orderId || '12345',
-    customerName: 'محمد أحمد',
-    customerPhone: '+967771234567',
-    deliveryAddress: 'صنعاء، شارع الزبيري، بجانب مسجد النور',
-    items: [
-      { name: 'عربكة بالقشطة والعسل', quantity: 2, price: 55 },
-      { name: 'مياه معدنية', quantity: 1, price: 3 },
-    ],
-    total: 113,
-    status: 'on_way',
-    estimatedTime: '25 دقيقة',
-    driverName: 'أحمد محمد',
-    driverPhone: '+967771234567',
-    createdAt: new Date(),
+  // Fetch real order data from API
+  const { data: orderData, isLoading, error } = useQuery({
+    queryKey: [`/api/orders/${orderId}/track`],
+    queryFn: async () => {
+      if (!orderId) throw new Error('Order ID is required');
+      const response = await apiRequest('GET', `/api/orders/${orderId}/track`);
+      return response.json();
+    },
+    enabled: !!orderId,
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
-  const [orderHistory] = useState<OrderStatus[]>([
-    { id: '1', status: 'pending', timestamp: new Date(Date.now() - 30 * 60000), description: 'تم استلام الطلب' },
-    { id: '2', status: 'confirmed', timestamp: new Date(Date.now() - 25 * 60000), description: 'تم تأكيد الطلب من المطعم' },
-    { id: '3', status: 'preparing', timestamp: new Date(Date.now() - 15 * 60000), description: 'جاري تحضير الطلب' },
-    { id: '4', status: 'on_way', timestamp: new Date(Date.now() - 5 * 60000), description: 'الطلب في الطريق إليك' },
-  ]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">جاري تحميل تفاصيل الطلب...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !orderData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">الطلب غير موجود</h2>
+          <p className="text-gray-600 mb-4">لم نتمكن من العثور على هذا الطلب</p>
+          <Button onClick={() => setLocation('/')} data-testid="button-back-home">
+            العودة للرئيسية
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const { order, tracking } = orderData;
 
   const getStatusProgress = (status: string) => {
     const statusMap = {
@@ -92,6 +116,15 @@ export default function OrderTracking() {
     return textMap[status as keyof typeof textMap] || status;
   };
 
+  // Mock driver data - in real app this would come from order.driverId
+  const driverData = order.driverId ? {
+    id: order.driverId,
+    name: order.driverName || 'أحمد محمد',
+    phone: order.driverPhone || '+967771234567',
+    currentLocation: 'في الطريق إليك',
+    isAvailable: false
+  } : null;
+
   return (
     <div>
       {/* Header */}
@@ -110,11 +143,17 @@ export default function OrderTracking() {
       </header>
 
       <section className="p-4 space-y-6">
+        {/* Live Update Indicator */}
+        <div className="flex items-center justify-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-full w-fit mx-auto">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span>التحديث المباشر مفعل</span>
+        </div>
+
         {/* Order Status Card */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">طلب رقم #{order.id}</CardTitle>
+              <CardTitle className="text-lg">طلب رقم #{order.orderNumber || order.id}</CardTitle>
               <Badge 
                 className={`${getStatusColor(order.status)} text-white`}
                 data-testid="order-status-badge"
@@ -146,37 +185,13 @@ export default function OrderTracking() {
           </CardContent>
         </Card>
 
-        {/* Driver Info */}
-        {order.status === 'on_way' && order.driverName && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-foreground" data-testid="driver-name">
-                    {order.driverName}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">سائق التوصيل</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  data-testid="button-call-driver"
-                >
-                  <Phone className="h-4 w-4 ml-2" />
-                  اتصال
-                </Button>
-              </div>
-              <div className="bg-muted p-3 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-primary" />
-                  <span className="text-sm text-foreground">السائق في الطريق إليك</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Driver Communication */}
+        {(order.status === 'on_way' || order.status === 'preparing') && driverData && (
+          <DriverCommunication 
+            driver={driverData}
+            orderNumber={order.orderNumber || order.id}
+            customerLocation={order.deliveryAddress}
+          />
         )}
 
         {/* Delivery Address */}
@@ -189,6 +204,19 @@ export default function OrderTracking() {
                 <p className="text-sm text-foreground" data-testid="delivery-address">
                   {order.deliveryAddress}
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-2"
+                  onClick={() => {
+                    const address = encodeURIComponent(order.deliveryAddress);
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
+                  }}
+                  data-testid="button-view-on-maps"
+                >
+                  <Navigation className="h-4 w-4" />
+                  عرض على الخرائط
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -233,12 +261,12 @@ export default function OrderTracking() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {orderHistory.map((status, index) => (
+              {tracking?.map((status, index) => (
                 <div key={status.id} className="flex items-start gap-3">
                   <div className={`w-4 h-4 rounded-full ${getStatusColor(status.status)} mt-1 flex-shrink-0`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-foreground font-medium" data-testid={`timeline-description-${index}`}>
-                      {status.description}
+                      {status.description || status.message || 'تحديث الطلب'}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid={`timeline-time-${index}`}>
                       {status.timestamp.toLocaleTimeString('ar-YE', { 
@@ -248,18 +276,39 @@ export default function OrderTracking() {
                     </p>
                   </div>
                 </div>
-              ))}
+              )) || (
+                <div className="text-center py-4 text-gray-500">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>لا توجد تحديثات متاحة</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Action Buttons */}
         <div className="space-y-3">
+          {/* Emergency Contact */}
+          <Button 
+            variant="outline" 
+            className="w-full gap-2"
+            onClick={() => window.open('tel:+967771234567')}
+            data-testid="button-emergency-contact"
+          >
+            <Phone className="h-4 w-4" />
+            اتصال طوارئ - خدمة العملاء
+          </Button>
+          
           <Button 
             variant="outline" 
             className="w-full"
+            onClick={() => {
+              const message = `مرحباً، أحتاج مساعدة بخصوص طلب رقم ${order.orderNumber || order.id}`;
+              window.open(`https://wa.me/967771234567?text=${encodeURIComponent(message)}`, '_blank');
+            }}
             data-testid="button-contact-support"
           >
+            <MessageCircle className="h-4 w-4 mr-2" />
             تواصل مع الدعم
           </Button>
           
@@ -267,6 +316,15 @@ export default function OrderTracking() {
             <Button 
               variant="destructive" 
               className="w-full"
+              onClick={() => {
+                if (confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) {
+                  // Handle order cancellation
+                  toast({
+                    title: "جاري إلغاء الطلب",
+                    description: "سيتم التواصل معك لتأكيد الإلغاء",
+                  });
+                }
+              }}
               data-testid="button-cancel-order"
             >
               إلغاء الطلب

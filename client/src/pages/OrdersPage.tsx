@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 
 interface Order {
   id: string;
@@ -50,43 +51,54 @@ export default function OrdersPage() {
   // Use a demo customer ID for testing - in real app this would come from authentication context
   const customerId = 'demo-customer-id';
 
-  // Fetch orders from database
+  // Fetch real orders from database
   const { data: orders = [], isLoading, error } = useQuery<Order[]>({
-    queryKey: ['orders', customerId],
+    queryKey: ['/api/orders'],
     queryFn: async () => {
-      const response = await fetch(`/api/customers/${customerId}/orders`);
-      if (!response.ok) {
-        throw new Error('فشل في جلب الطلبات');
+      try {
+        const response = await apiRequest('GET', '/api/orders');
+        const data = await response.json();
+        
+        // Process each order to parse items and get restaurant info
+        const processedOrders = await Promise.all(data.map(async (order: Order) => {
+          let parsedItems: OrderItem[] = [];
+          try {
+            parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+          } catch (e) {
+            console.error('خطأ في تحليل عناصر الطلب:', e);
+            parsedItems = [];
+          }
+          
+          // Get restaurant name if not available
+          let restaurantName = order.restaurantName;
+          if (!restaurantName && order.restaurantId) {
+            try {
+              const restaurantResponse = await apiRequest('GET', `/api/restaurants/${order.restaurantId}`);
+              const restaurant = await restaurantResponse.json();
+              restaurantName = restaurant.name;
+            } catch (e) {
+              console.error('خطأ في جلب اسم المطعم:', e);
+              restaurantName = 'مطعم غير معروف';
+            }
+          } else if (!restaurantName) {
+            restaurantName = 'مطعم غير معروف';
+          }
+          
+          return {
+            ...order,
+            restaurantName,
+            parsedItems
+          };
+        }));
+        
+        return processedOrders;
+      } catch (error) {
+        console.error('خطأ في جلب الطلبات:', error);
+        throw error;
       }
-      const data = await response.json();
-      
-      // Process each order to parse items and fetch restaurant name
-      const processedOrders = await Promise.all(data.map(async (order: Order) => {
-        let parsedItems: OrderItem[] = [];
-        try {
-          parsedItems = JSON.parse(order.items);
-        } catch (e) {
-          console.error('خطأ في تحليل عناصر الطلب:', e);
-        }
-        
-        // Try to get restaurant name from items if not available
-        let restaurantName = order.restaurantName;
-        if (!restaurantName && parsedItems.length > 0 && parsedItems[0].restaurantName) {
-          restaurantName = parsedItems[0].restaurantName;
-        } else if (!restaurantName) {
-          restaurantName = 'مطعم غير معروف';
-        }
-        
-        return {
-          ...order,
-          restaurantName,
-          parsedItems
-        };
-      }));
-      
-      return processedOrders;
     },
-    retry: 1
+    retry: 2,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Mock fallback orders for demo if no orders in database
@@ -299,6 +311,15 @@ export default function OrdersPage() {
                         <div>
                           <CardTitle className="text-lg font-bold">{order.restaurantName}</CardTitle>
                           <p className="text-sm text-gray-500">طلب رقم: {order.orderNumber}</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(order.createdAt).toLocaleDateString('ar-SA', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
                         </div>
                         <Badge 
                           className={`${getStatusColor(order.status)} text-white`}
@@ -332,15 +353,14 @@ export default function OrdersPage() {
                           <span>المجموع: {order.totalAmount} ر.س</span>
                         </div>
                         <div className="flex justify-between text-xs text-gray-500">
-                          <span>تاريخ الطلب: {new Date(order.createdAt).toLocaleDateString('ar-SA')}</span>
-                          {order.estimatedTime && (
-                            <span>الوقت المتوقع: {order.estimatedTime}</span>
-                          )}
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-500">
                           <span>العنوان: {order.deliveryAddress}</span>
                           <span>الدفع: {order.paymentMethod === 'cash' ? 'نقدي' : 'إلكتروني'}</span>
                         </div>
+                        {order.notes && (
+                          <div className="text-xs text-gray-500">
+                            <span>ملاحظات: {order.notes}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Buttons */}
